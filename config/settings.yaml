@@ -1,0 +1,10 @@
+output:
+  width: 1080
+  height: 1920
+  codec: libx264
+  crf: 18
+  audio_codec: copy
+  preset: fast
+  # Hex color used to pad any height gap between stacked panels and the output frame.
+  # 0xAA0000 = news-red (matches the Breaking News banner background).
+  pad_color: "0xAA0000"
