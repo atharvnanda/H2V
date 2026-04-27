@@ -28,9 +28,9 @@ TEMPLATE_CONFIG: dict = {
 
     # ── Region 2: Left panel (anchor / reporter) ──────────────────────────────
     "left_panel": {
-        "x": 0,
+        "x": 45,
         "y": 250,           # must match headline.h
-        "w": 638,
+        "w": 595,
         "h": 270,           # ← tune this: panel height (520 - 250)
     },
 
@@ -38,7 +38,7 @@ TEMPLATE_CONFIG: dict = {
     "right_panel": {
         "x": 638,           # must match left_panel.w
         "y": 250,           # must match headline.h
-        "w": 642,           # 1280 - 638
+        "w": 595,           # 1280 - 638
         "h": 270,           # must match left_panel.h
     },
 }
