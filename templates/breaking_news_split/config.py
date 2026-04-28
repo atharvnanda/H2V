@@ -41,4 +41,12 @@ TEMPLATE_CONFIG: dict = {
         "w": 595,           # 1280 - 638
         "h": 270,           # must match left_panel.h
     },
+
+    # ── Region 4: Bottom animation/background ─────────────────────────────────
+    "bottom_bar": {
+        "x": 0,
+        "y": 521,
+        "w": 1280,
+        "h": 199,           # 720 - 521
+    },
 }
