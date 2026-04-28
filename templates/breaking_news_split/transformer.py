@@ -6,18 +6,17 @@ then builds a complete FFmpeg command list ready to hand off to core.ffmpeg_runn
 
 Filter chain overview
 ─────────────────────
-  Split the input into 5 streams, each cropped and scaled. The bottom bar
-  is split into two halves (top and bottom) to fill the exact remaining
-  vertical space to reach 1920px evenly.
+  Split the input into 4 streams. The headline and bottom bar maintain their 
+  aspect ratios, and the remaining vertical space is divided between the 
+  left and right panels (which are stretched to fill the space).
 
-    [bottom_top] = crop → scale to output_width x (gap // 2)
-    [headline]   = crop → scale to output_width
-    [left]       = crop → scale to output_width
-    [right]      = crop → scale to output_width
-    [bottom_bot] = crop → scale to output_width x (gap - gap // 2)
+    [headline] = crop → scale to output_width
+    [left]     = crop → scale to output_width x (remaining_height // 2)
+    [right]    = crop → scale to output_width x (remaining_height - left_height)
+    [bottom]   = crop → scale to output_width
 
   Stack vertically:
-    [bottom_top][headline][left][right][bottom_bot] → vstack=inputs=5 → [out]
+    [headline][left][right][bottom] → vstack=inputs=4, setsar=1 → [out]
 
   Map [out] for video, pass audio through unchanged.
 """
@@ -75,14 +74,10 @@ def build_command(input_path: str, output_path: str) -> list[str]:
 
     # ── Calculate scaled heights & gap budget ────────────────────────────────
     h_head  = _scaled_height(cfg["headline"],   out_w)
-    h_left  = _scaled_height(cfg["left_panel"], out_w)
-    h_right = _scaled_height(cfg["right_panel"], out_w)
-
-    content_h = h_head + h_left + h_right
-    gap = out_h - content_h
-
-    gap_top = _even(gap // 2)
-    gap_bot = gap - gap_top
+    h_bot   = _scaled_height(cfg["bottom_bar"], out_w)
+    h_remaining = out_h - h_head - h_bot
+    h_left = _even(h_remaining // 2)
+    h_right = h_remaining - h_left
 
     # ── Build filter_complex ─────────────────────────────────────────────────
     def crop_scale(region: dict, target_h: str) -> str:
@@ -92,25 +87,31 @@ def build_command(input_path: str, output_path: str) -> list[str]:
         )
 
     headline_frag   = f"[0:v] {crop_scale(cfg['headline'], '-2')} [headline]"
-    left_frag       = f"[0:v] {crop_scale(cfg['left_panel'], '-2')} [left]"
-    right_frag      = f"[0:v] {crop_scale(cfg['right_panel'], '-2')} [right]"
-    
-    # Split the bottom bar into two halves
-    bottom_top_frag = f"[0:v] {crop_scale(cfg['bottom_bar'], str(gap_top))} [bottom_top]"
-    bottom_bot_frag = f"[0:v] {crop_scale(cfg['bottom_bar'], str(gap_bot))} [bottom_bot]"
+    left_frag       = f"[0:v] {crop_scale(cfg['left_panel'], str(h_left))} [left]"
+    right_frag      = f"[0:v] {crop_scale(cfg['right_panel'], str(h_right))} [right]"
+    bottom_frag     = f"[0:v] {crop_scale(cfg['bottom_bar'], '-2')} [bottom]"
 
     # vstack: all widths are out_w, total height is exactly out_h
     # setsar=1 forces square pixels so the 1080x1920 output displays correctly as 9:16
-    vstack_frag = "[bottom_top][headline][left][right][bottom_bot] vstack=inputs=5, setsar=1 [out]"
+    vstack_frag = "[headline][left][right][bottom] vstack=inputs=4, setsar=1 [out]"
 
     filter_complex = "; ".join([
-        bottom_top_frag,
         headline_frag,
         left_frag,
         right_frag,
-        bottom_bot_frag,
+        bottom_frag,
         vstack_frag,
     ])
+    
+    # === Commented out old 5-stack filter complex ===
+    # filter_complex = "; ".join([
+    #     bottom_top_frag,
+    #     headline_frag,
+    #     left_frag,
+    #     right_frag,
+    #     bottom_bot_frag,
+    #     vstack_frag,
+    # ])
 
     # ── Assemble full command ────────────────────────────────────────────────
     cmd: list[str] = [

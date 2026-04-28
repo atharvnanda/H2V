@@ -1,17 +1,3 @@
-# ---------------------------------------------------------------------------
-# Template: breaking_news_split
-# ---------------------------------------------------------------------------
-# All pixel values are for a 1920×1080 source frame.
-# Adjust these numbers to align with your specific broadcast layout.
-#
-# How to find the right values:
-#   1. Extract a frame:   ffmpeg -i input.mp4 -vframes 1 frame.png
-#   2. Open frame.png in any image editor (Paint, GIMP, Photoshop).
-#   3. Note the y-coordinate where the headline bar ends and panels begin.
-#   4. Note the y-coordinate where the panels end (before player chrome).
-#   5. Update the values below accordingly.
-# ---------------------------------------------------------------------------
-
 TEMPLATE_CONFIG: dict = {
     # ── Source video resolution ──────────────────────────────────────────────
     "source_width": 1280,
