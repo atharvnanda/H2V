@@ -2,11 +2,11 @@
 templates/fullscreen_breaking/transformer.py
 
 Reads global settings and builds an FFmpeg command to convert a 16:9 
-video to 9:16 by scaling to fit the width and padding the top/bottom.
+video to 9:16 by stretching it to 1080x1480 and padding the rest.
 
 Filter chain overview
 ─────────────────────
-  [0:v] scale to output_width → pad to output_height (centered) → [out]
+  [0:v] scale to 1080:1480 → pad to 1080:1920 (centered) → setsar=1 → [out]
 """
 from __future__ import annotations
 
@@ -39,9 +39,9 @@ def build_command(input_path: str, output_path: str) -> list[str]:
     pad_color: str = settings["pad_color"]  # 0xAA0000
 
     # ── Build filter_complex ─────────────────────────────────────────────────
-    # Scale to out_w (maintaining aspect ratio), then pad to out_h centered.
+    # Stretch to 1080x1480, then pad to out_w x out_h centered
     filter_complex = (
-        f"[0:v] scale={out_w}:-2, "
+        f"[0:v] scale=1080:1480, "
         f"pad={out_w}:{out_h}:(ow-iw)/2:(oh-ih)/2:{pad_color}, "
         f"setsar=1 [out]"
     )
