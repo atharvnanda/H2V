@@ -4,7 +4,7 @@ main.py — H2V CLI entry point
 Usage
 ─────
   python main.py --input path/to/video.mp4
-  python main.py -i video.mp4 -o output/custom_name.mp4 --template breaking_news_split
+  python main.py -i video.mp4 -o output/custom_name.mp4 --template breaking_news_2_panels
 
 The constructed FFmpeg command is printed to the terminal before execution
 so you can verify or copy-paste it for manual debugging.
@@ -40,11 +40,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-t", "--template",
-        default="breaking_news_split",
+        default="breaking_news_2_panels",
         metavar="TEMPLATE",
         help=(
             "Template name to use for layout (must match a folder under templates/). "
-            "Default: breaking_news_split"
+            "Default: breaking_news_2_panels"
         ),
     )
     return parser.parse_args()
