@@ -40,11 +40,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-t", "--template",
-        default="breaking_news_2_panels",
+        default=None,
         metavar="TEMPLATE",
         help=(
-            "Template name to use for layout (must match a folder under templates/). "
-            "Default: breaking_news_2_panels"
+            "Template name (folder under templates/). "
+            "Auto-detected from video if omitted."
         ),
     )
     return parser.parse_args()
@@ -104,6 +104,17 @@ def main() -> None:
     if not input_path.exists():
         print(f"[ERROR] Input file not found: {input_path}", file=sys.stderr)
         sys.exit(1)
+
+    # ── Auto-detect template if not provided ──────────────────────────────────
+    if args.template is None:
+        from core.classifier import classify
+        print("[h2v] No template specified — auto-detecting from video frame…")
+        try:
+            args.template = classify(str(input_path))
+            print(f"[h2v] Detected template  : {args.template}")
+        except Exception as exc:
+            print(f"[ERROR] Auto-detection failed: {exc}", file=sys.stderr)
+            sys.exit(1)
 
     transformer = load_transformer(args.template)
 
