@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>H2V — Horizontal to Vertical</title>
+  <meta name="description" content="Automated horizontal-to-vertical video converter for broadcast news content." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b0d11;
+      --surface:   rgba(255 255 255 / 0.04);
+      --glass:     rgba(255 255 255 / 0.06);
+      --border:    rgba(255 255 255 / 0.08);
+      --text:      #e4e6eb;
+      --text-dim:  #8b8fa3;
+      --accent:    #6c5ce7;
+      --accent-2:  #a29bfe;
+      --danger:    #ff6b6b;
+      --success:   #51cf66;
+      --radius:    14px;
+      --font:      'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Ambient background glow ──────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 600px 400px at 25% 20%, rgba(108,92,231,.12), transparent),
+        radial-gradient(ellipse 500px 350px at 75% 75%, rgba(162,155,254,.08), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Card container ───────────────────────────────────────────────────── */
+    .card {
+      position: relative;
+      z-index: 1;
+      width: min(480px, 92vw);
+      background: var(--glass);
+      backdrop-filter: blur(32px) saturate(1.2);
+      -webkit-backdrop-filter: blur(32px) saturate(1.2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.35);
+      transition: transform .35s ease, box-shadow .35s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 12px 48px rgba(0,0,0,.45); }
+
+    /* ── Logo / Title ─────────────────────────────────────────────────────── */
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: .35rem;
+    }
+    .subtitle {
+      font-size: .82rem;
+      color: var(--text-dim);
+      margin-bottom: 2rem;
+    }
+
+    /* ── View states ──────────────────────────────────────────────────────── */
+    .view { display: none; flex-direction: column; align-items: center; gap: 1.2rem; }
+    .view.active { display: flex; animation: fadeIn .4s ease; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Upload drop zone ─────────────────────────────────────────────────── */
+    .dropzone {
+      width: 100%;
+      padding: 2.4rem 1.5rem;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color .25s, background .25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .dropzone:hover,
+    .dropzone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108,92,231,.06);
+    }
+    .dropzone-icon {
+      font-size: 2.2rem;
+      margin-bottom: .6rem;
+      opacity: .7;
+    }
+    .dropzone-label {
+      font-size: .92rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .dropzone-label strong {
+      color: var(--accent-2);
+      font-weight: 600;
+    }
+    .file-name {
+      margin-top: .5rem;
+      font-size: .82rem;
+      color: var(--accent-2);
+      word-break: break-all;
+      min-height: 1.2em;
+    }
+    input[type="file"] { display: none; }
+
+    /* ── Button ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .72rem 2rem;
+      font-family: var(--font);
+      font-size: .88rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+      box-shadow: 0 4px 16px rgba(108,92,231,.25);
+    }
+    .btn:hover { opacity: .9; transform: translateY(-1px); }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--accent);
+      color: var(--accent-2);
+      box-shadow: none;
+    }
+    .btn-outline:hover { background: rgba(108,92,231,.1); }
+
+    /* ── Spinner ──────────────────────────────────────────────────────────── */
+    .spinner-wrap { display: flex; flex-direction: column; align-items: center; gap: 1.2rem; }
+
+    .spinner {
+      width: 52px; height: 52px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-2);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-text {
+      font-size: .92rem;
+      color: var(--text-dim);
+      transition: color .3s;
+    }
+
+    /* ── Done view ────────────────────────────────────────────────────────── */
+    .done-icon {
+      font-size: 2.5rem;
+      color: var(--success);
+      animation: popIn .4s ease;
+    }
+    @keyframes popIn { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+    .video-preview {
+      width: 100%;
+      max-height: 420px;
+      border-radius: 10px;
+      background: #000;
+      margin-top: .4rem;
+    }
+
+    .btn-group { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+
+    /* ── Error state ──────────────────────────────────────────────────────── */
+    .error-text { color: var(--danger); font-size: .88rem; line-height: 1.5; }
+
+    /* ── Responsive ───────────────────────────────────────────────────────── */
+    @media (max-width: 500px) {
+      .card { padding: 2rem 1.25rem; }
+      .dropzone { padding: 1.8rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">H2V</div>
+  <div class="subtitle">Horizontal → Vertical Video Converter</div>
+
+  <!-- ────── Upload View ────── -->
+  <div id="view-upload" class="view active">
+    <div class="dropzone" id="dropzone">
+      <div class="dropzone-icon">📁</div>
+      <div class="dropzone-label">
+        Drag & drop your video here<br/>or <strong>click to browse</strong>
+      </div>
+      <input type="file" id="file-input" accept="video/*" />
+    </div>
+    <div class="file-name" id="file-name"></div>
+    <button class="btn" id="btn-upload" disabled>
+      <span>⬆</span> Convert Video
+    </button>
+  </div>
+
+  <!-- ────── Loading View ────── -->
+  <div id="view-loading" class="view">
+    <div class="spinner-wrap">
+      <div class="spinner"></div>
+      <div class="status-text" id="status-text">Queued — starting pipeline…</div>
+    </div>
+  </div>
+
+  <!-- ────── Done View ────── -->
+  <div id="view-done" class="view">
+    <div class="done-icon">✓</div>
+    <video id="video-preview" class="video-preview" controls playsinline></video>
+    <div class="btn-group">
+      <a id="btn-download" class="btn" download>
+        <span>⬇</span> Download
+      </a>
+      <button class="btn btn-outline" id="btn-new">
+        <span>↻</span> Convert another
+      </button>
+    </div>
+  </div>
+
+  <!-- ────── Error View ────── -->
+  <div id="view-error" class="view">
+    <div class="done-icon" style="color: var(--danger);">✗</div>
+    <div class="error-text" id="error-text">Something went wrong.</div>
+    <button class="btn btn-outline" id="btn-retry">
+      <span>↻</span> Try again
+    </button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ── Elements ─────────────────────────────────────────────────────────────
+  const views     = document.querySelectorAll('.view');
+  const dropzone  = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  const fileName  = document.getElementById('file-name');
+  const btnUpload = document.getElementById('btn-upload');
+  const statusTxt = document.getElementById('status-text');
+  const videoEl   = document.getElementById('video-preview');
+  const btnDL     = document.getElementById('btn-download');
+  const btnNew    = document.getElementById('btn-new');
+  const btnRetry  = document.getElementById('btn-retry');
+  const errorTxt  = document.getElementById('error-text');
+
+  let selectedFile = null;
+  let pollTimer    = null;
+
+  // ── View management ──────────────────────────────────────────────────────
+  function showView(id) {
+    views.forEach(v => v.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ── Drag & drop ──────────────────────────────────────────────────────────
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('drag-over');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) selectFile(fileInput.files[0]);
+  });
+
+  function selectFile(file) {
+    selectedFile = file;
+    fileName.textContent = file.name;
+    btnUpload.disabled = false;
+  }
+
+  // ── Upload ───────────────────────────────────────────────────────────────
+  btnUpload.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    btnUpload.disabled = true;
+    showView('view-loading');
+    statusTxt.textContent = 'Uploading…';
+
+    try {
+      const form = new FormData();
+      form.append('file', selectedFile);
+
+      const res = await fetch('/upload', { method: 'POST', body: form });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+
+      const { job_id } = await res.json();
+      startPolling(job_id);
+    } catch (err) {
+      showError(err.message);
+    }
+  });
+
+  // ── Polling ──────────────────────────────────────────────────────────────
+  function startPolling(jobId) {
+    if (pollTimer) clearInterval(pollTimer);
+
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/status/${jobId}`);
+        if (!res.ok) throw new Error(`Status check failed (${res.status})`);
+
+        const data = await res.json();
+        statusTxt.textContent = data.detail || 'Processing…';
+
+        if (data.state === 'done') {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          showDone(data.output_url);
+        } else if (data.state === 'error') {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          showError(data.detail);
+        }
+      } catch (err) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showError(err.message);
+      }
+    }, 2500);
+  }
+
+  // ── Done ─────────────────────────────────────────────────────────────────
+  function showDone(url) {
+    videoEl.src = url;
+    btnDL.href = url;
+    showView('view-done');
+  }
+
+  // ── Error ────────────────────────────────────────────────────────────────
+  function showError(msg) {
+    errorTxt.textContent = msg || 'An unexpected error occurred.';
+    showView('view-error');
+  }
+
+  // ── Reset ────────────────────────────────────────────────────────────────
+  function reset() {
+    selectedFile = null;
+    fileInput.value = '';
+    fileName.textContent = '';
+    btnUpload.disabled = true;
+    videoEl.src = '';
+    showView('view-upload');
+  }
+
+  btnNew.addEventListener('click', reset);
+  btnRetry.addEventListener('click', reset);
+})();
+</script>
+
+</body>
+</html>

@@ -1,5 +1,6 @@
 venv/
 data/short_input.mp4
 output/
+uploads/
 __pycache__/
 .env
