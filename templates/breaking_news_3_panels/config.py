@@ -61,5 +61,4 @@ TEMPLATE_CONFIG: dict = {
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────
-# TODO: Fill in after reviewing the template's reference image.
-DETECTION_DESCRIPTION = "TODO: brief visual description of this layout"
+DETECTION_DESCRIPTION = "THREE-panel BREAKING NEWS layout. Has a MASSIVE 250px red header with huge white 'BREAKING NEWS' text taking up ~35% of the frame. Below it are exactly THREE equal 395x270px SHORT panels side-by-side. 199px bottom bar. Panels are SHORT (270px) because the header is so large. Red geometric background. NOT a studio layout with tall 400px panels."

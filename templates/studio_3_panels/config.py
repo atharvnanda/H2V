@@ -43,5 +43,4 @@ TEMPLATE_CONFIG: dict = {
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────
-# TODO: Fill in after reviewing the template's reference image.
-DETECTION_DESCRIPTION = "TODO: brief visual description of this layout"
+DETECTION_DESCRIPTION = "THREE-panel studio layout with three EQUAL-width 395x400px panels side-by-side. All three panels are the same width showing anchors/guests. Thin 122px dark/gold header (e.g. 'INDIAN POLITICAL LEAGUE'), 196px bottom bar. Panels are TALL (400px). NOT narrow-wide-narrow like middlesplit. NOT short 270px panels like breaking_news."

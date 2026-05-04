@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import base64
 import importlib
+import os
 import subprocess
 import tempfile
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from groq import Groq
 
@@ -93,7 +98,11 @@ def classify(video_path: str) -> str:
     frame  = _extract_frame(video_path)
     b64    = base64.b64encode(frame).decode()
 
-    client = Groq()  # reads GROQ_API_KEY from environment
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not found in .env file or environment.")
+
+    client = Groq(api_key=api_key)
     resp   = client.chat.completions.create(
         model=MODEL,
         messages=[

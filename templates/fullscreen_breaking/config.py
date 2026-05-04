@@ -11,5 +11,4 @@ TEMPLATE_CONFIG: dict = {
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────
-# TODO: Fill in after reviewing the template's reference image.
-DETECTION_DESCRIPTION = "TODO: brief visual description of this layout"
+DETECTION_DESCRIPTION = "Fullscreen 1280x720px layout with no panel splits. Typically shows a single person or scene with 'Breaking News' graphics overlaid on the main frame."

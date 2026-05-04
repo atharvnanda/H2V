@@ -38,5 +38,4 @@ TEMPLATE_CONFIG: dict = {
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────
-# TODO: Fill in after reviewing the template's reference image.
-DETECTION_DESCRIPTION = "TODO: brief visual description of this layout"
+DETECTION_DESCRIPTION = "TWO-panel studio layout. The screen is split into exactly two boxes: a 478x397px left panel and a 711x397px right panel. The left panel can show one anchor or multiple guests stacked. The right panel is larger and shows a graphic, video feed, or data display. Thin 120px header, 199px bottom bar, deep red background. NOT three panels."
