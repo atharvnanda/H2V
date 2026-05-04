@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Template: studio_middlesplit
+# Template: 3panel_equal_studio
 # ---------------------------------------------------------------------------
 
 TEMPLATE_CONFIG: dict = {
@@ -10,27 +10,27 @@ TEMPLATE_CONFIG: dict = {
         "x": 0,
         "y": 0,
         "w": 1280,
-        "h": 120,
+        "h": 122,
     },
 
     "studio_left": {
-        "x": 45,
-        "y": 123,
-        "w": 233,
+        "x": 42,
+        "y": 126,
+        "w": 395,
         "h": 400,
     },
 
-    "mid_video": {
-        "x": 280,
-        "y": 123,
-        "w": 711,
+    "studio_mid": {
+        "x": 443,
+        "y": 126,
+        "w": 395,
         "h": 400,
     },
 
     "studio_right": {
-        "x": 994,
-        "y": 123,
-        "w": 242,
+        "x": 843,
+        "y": 126,
+        "w": 395,
         "h": 400,
     },
 
@@ -43,4 +43,4 @@ TEMPLATE_CONFIG: dict = {
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────
-DETECTION_DESCRIPTION = "THREE-panel studio layout with a narrow-WIDE-narrow split. A large 711x400px center video panel is flanked by two very narrow side panels (left: 233x400px, right: 242x400px) showing individual anchors/reporters. Thin 120px header, 196px bottom bar. The side panels are much narrower than the center."
+DETECTION_DESCRIPTION = "THREE EQUAL-width panels (1:1:1 ratio). Each panel is 395x400px — all the SAME width. Shows anchors/guests with room in each panel. Thin 122px dark/gold header, 196px bottom bar. Panels are TALL (400px). All three panels have EQUAL width — none is wider or narrower than the others."

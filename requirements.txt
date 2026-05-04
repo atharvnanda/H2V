@@ -1,6 +1,7 @@
 pyyaml>=6.0
 groq
 python-dotenv
+opencv-python
 fastapi
 uvicorn[standard]
 python-multipart

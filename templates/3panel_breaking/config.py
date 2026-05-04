@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Template: breaking_news_3_panels
+# Template: 3panel_breaking
 # ---------------------------------------------------------------------------
 # All pixel values are for a 1280×720 source frame.
 # Adjust these numbers to align with your specific broadcast layout.

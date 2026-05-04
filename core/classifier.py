@@ -1,128 +1,75 @@
-"""
-core/classifier.py — Auto-detect template from a video frame using Groq vision API.
+"""core/classifier.py — Hybrid template detection.
 
-Requires:
-  - GROQ_API_KEY environment variable
-  - ffmpeg on PATH
-  - groq Python package  (pip install groq)
+1. OpenCV geometry scoring  (header height + panel count)
+2. Groq LLM tiebreaker      (only when top-2 scores are close)
 """
 from __future__ import annotations
 
 import base64
-import importlib
 import os
-import subprocess
-import tempfile
-from pathlib import Path
+
+import cv2
 from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
 from groq import Groq
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
-PROMPT_PATH   = Path(__file__).parent / "prompts" / "classify.txt"
-TEMPLATES_DIR = Path(__file__).parents[1] / "templates"
-MODEL         = "meta-llama/llama-4-scout-17b-16e-instruct"
+from core.geometry import extract_frame, rank_templates
 
+load_dotenv()
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
+MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
-def _extract_frame(video_path: str) -> bytes:
-    """Return JPEG bytes for a single frame extracted at t=1 s via FFmpeg."""
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-        tmp_path = tmp.name
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-ss", "1",
-            "-i", video_path,
-            "-frames:v", "1",
-            "-q:v", "2",
-            tmp_path,
-        ],
-        capture_output=True,
-        check=True,
-    )
-    data = Path(tmp_path).read_bytes()
-    Path(tmp_path).unlink(missing_ok=True)
-    return data
-
-
-def _load_descriptions() -> dict[str, str]:
-    """Return {folder_name: DETECTION_DESCRIPTION} for every valid template."""
-    result: dict[str, str] = {}
-    for folder in sorted(TEMPLATES_DIR.iterdir()):
-        if not folder.is_dir() or folder.name.startswith("_"):
-            continue
-        try:
-            mod  = importlib.import_module(f"templates.{folder.name}.config")
-            desc = getattr(mod, "DETECTION_DESCRIPTION", None)
-            if desc:
-                result[folder.name] = str(desc).strip()
-        except Exception:
-            continue
-    return result
-
-
-def _build_prompt(descriptions: dict[str, str]) -> str:
-    """Fill the classify.txt template with the description block."""
-    block = "\n".join(f"- {name}: {desc}" for name, desc in descriptions.items())
-    return PROMPT_PATH.read_text(encoding="utf-8").replace("{template_descriptions}", block)
-
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def classify(video_path: str) -> str:
-    """
-    Detect and return the best-matching template folder name for *video_path*.
+    """Return the best-matching template name for *video_path*."""
+    ranked = rank_templates(video_path)
+    if not ranked:
+        raise RuntimeError("No templates found.")
 
-    Raises
-    ------
-    RuntimeError
-        If no templates have DETECTION_DESCRIPTION defined.
-    ValueError
-        If the model returns a name that does not match any known template.
-    subprocess.CalledProcessError
-        If FFmpeg fails to extract a frame.
-    """
-    descriptions = _load_descriptions()
-    if not descriptions:
-        raise RuntimeError(
-            "No templates have DETECTION_DESCRIPTION defined. "
-            "Add the string to each templates/<name>/config.py."
-        )
+    top = ranked[0]       # (name, score, desc)
+    runner = ranked[1] if len(ranked) > 1 else None
 
-    prompt = _build_prompt(descriptions)
-    frame  = _extract_frame(video_path)
-    b64    = base64.b64encode(frame).decode()
+    # Clear winner → skip LLM entirely
+    if runner is None or top[1] > runner[1] * 1.3:
+        return top[0]
 
+    # Ambiguous → LLM picks between top 2
+    print(f"  [tiebreak] {top[0]} ({top[1]:.0f}) vs {runner[0]} ({runner[1]:.0f}) → asking LLM")
+    return _llm_tiebreak(video_path, top, runner)
+
+
+def _llm_tiebreak(
+    video_path: str,
+    a: tuple[str, float, str],
+    b: tuple[str, float, str],
+) -> str:
+    """Ask LLM to choose between two candidate templates."""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GROQ_API_KEY not found in .env file or environment.")
+        raise ValueError("GROQ_API_KEY not set.")
+
+    frame = extract_frame(video_path)
+    _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    b64 = base64.b64encode(buf).decode()
+
+    prompt = (
+        f"This broadcast frame matches one of these two layouts:\n\n"
+        f"A) {a[0]}: {a[2]}\n"
+        f"B) {b[0]}: {b[2]}\n\n"
+        f"Reply with ONLY the exact name: {a[0]} or {b[0]}"
+    )
 
     client = Groq(api_key=api_key)
-    resp   = client.chat.completions.create(
+    resp = client.chat.completions.create(
         model=MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text",      "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-                ],
-            }
-        ],
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+            ],
+        }],
         max_tokens=32,
     )
 
     result = resp.choices[0].message.content.strip()
-
-    if result not in descriptions:
-        raise ValueError(
-            f"[classifier] Model returned '{result}', expected one of: "
-            + ", ".join(descriptions.keys())
-        )
-
-    return result
+    return result if result in (a[0], b[0]) else a[0]  # fallback to top scorer

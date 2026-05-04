@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Template: fullscreen_breaking
+# Template: 1panel_fullscreen
 # ---------------------------------------------------------------------------
 # A simple template that takes the entire 16:9 frame, scales it to fit the 
 # 1080 width, and adds padding to the top and bottom to make it 1080x1920.
