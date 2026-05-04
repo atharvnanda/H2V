@@ -26,7 +26,7 @@ def _load_settings() -> dict[str, Any]:
         return yaml.safe_load(fh)
 
 
-def build_command(input_path: str, output_path: str) -> list[str]:
+def build_command(input_path: str, output_path: str, start: float = 0.0, duration: float = 0.0) -> list[str]:
     """Construct and return the full FFmpeg argument list."""
     settings = _load_settings()["output"]
 
@@ -47,10 +47,14 @@ def build_command(input_path: str, output_path: str) -> list[str]:
     )
 
     # ── Assemble full command ────────────────────────────────────────────────
-    cmd: list[str] = [
-        "ffmpeg",
-        "-y",                         # overwrite output without prompting
-        "-i", input_path,
+    cmd: list[str] = ["ffmpeg", "-y"]
+    if start > 0:
+        cmd.extend(["-ss", str(start)])
+    cmd.extend(["-i", input_path])
+    if duration > 0:
+        cmd.extend(["-t", str(duration)])
+    
+    cmd.extend([
         "-filter_complex", filter_complex,
         "-map", "[out]",              # use our filtered video stream
         "-map", "0:a?",               # pass audio through if present
@@ -59,6 +63,6 @@ def build_command(input_path: str, output_path: str) -> list[str]:
         "-preset", preset,
         "-c:a", audio_codec,
         output_path,
-    ]
+    ])
 
     return cmd

@@ -52,8 +52,9 @@ def _boundary_hit_rate(gray: np.ndarray, y_top: int, y_bot: int, x_positions: li
     return hits / len(x_positions)
 
 
-def rank_templates(video_path: str) -> list[tuple[str, float, str]]:
-    frame = extract_frame(video_path)
+def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[tuple[str, float, str]]:
+    if frame is None:
+        frame = extract_frame(video_path)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     m_header = _detect_header_bottom(gray)
     print(f"  [geometry] header_bottom={m_header}px")

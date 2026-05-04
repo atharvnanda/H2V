@@ -46,28 +46,62 @@ jobs: dict[str, dict] = {}
 
 # ── Background pipeline worker ───────────────────────────────────────────────
 def _run_pipeline(job_id: str, input_path: Path, output_path: Path) -> None:
-    """Run the full classify → transform → FFmpeg pipeline in a thread."""
+    """Segment → classify each segment → transform → concatenate."""
     try:
-        # ── Step 1: Classify ──────────────────────────────────────────────
         print(f"\n[h2v] [{job_id}] Starting pipeline for: {input_path.name}")
-        jobs[job_id]["detail"] = "Detecting template…"
-        from core.classifier import classify
-
-        template_name = classify(str(input_path))
-        print(f"[h2v] [{job_id}] Detected template: {template_name}")
-        jobs[job_id]["detail"] = f"Detected: {template_name}. Converting…"
-
-        # ── Step 2: Load transformer & build FFmpeg command ───────────────
-        module_path = f"templates.{template_name}.transformer"
-        transformer = importlib.import_module(module_path)
-        cmd = transformer.build_command(str(input_path), str(output_path))
-        print(f"[h2v] [{job_id}] FFmpeg command built — running conversion…")
-
-        # ── Step 3: Run FFmpeg ────────────────────────────────────────────
-        jobs[job_id]["detail"] = "Finalising…"
+        from core.segmenter import segment_video
         from core import ffmpeg_runner
 
-        ffmpeg_runner.run(cmd)
+        # ── Step 1: Segment & classify ────────────────────────────────────
+        jobs[job_id]["detail"] = "Analysing video structure…"
+        segments = segment_video(str(input_path))
+
+        template_segs = [s for s in segments if s["type"] == "TEMPLATE" and s.get("template")]
+        if not template_segs:
+            raise RuntimeError("No classifiable template segments found.")
+
+        print(f"[h2v] [{job_id}] {len(template_segs)} template segment(s) detected")
+
+        # ── Step 2: Process each template segment ─────────────────────────
+        temp_dir = UPLOAD_DIR / f"{job_id}_parts"
+        temp_dir.mkdir(exist_ok=True)
+        part_paths: list[Path] = []
+
+        for i, seg in enumerate(template_segs):
+            jobs[job_id]["detail"] = f"Converting segment {i + 1}/{len(template_segs)} ({seg['template']})…"
+            
+            part_path = temp_dir / f"part_{i:03d}.mp4"
+            duration = seg['end'] - seg['start']
+            
+            transformer = importlib.import_module(f"templates.{seg['template']}.transformer")
+            cmd = transformer.build_command(
+                str(input_path), str(part_path), 
+                start=seg["start"], duration=duration
+            )
+            ffmpeg_runner.run(cmd)
+            part_paths.append(part_path)
+
+        # ── Step 3: Concatenate (or move if single segment) ───────────────
+        jobs[job_id]["detail"] = "Finalising…"
+        if len(part_paths) == 1:
+            part_paths[0].rename(output_path)
+        else:
+            concat_list = temp_dir / "concat.txt"
+            concat_list.write_text(
+                "\n".join(f"file '{p.resolve().as_posix()}'" for p in part_paths),
+                encoding="utf-8",
+            )
+            ffmpeg_runner.run([
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                "-i", str(concat_list),
+                "-c", "copy",
+                str(output_path),
+            ])
+
+        # Cleanup temp files
+        for f in temp_dir.iterdir():
+            f.unlink()
+        temp_dir.rmdir()
 
         # ── Done ──────────────────────────────────────────────────────────
         jobs[job_id]["state"] = "done"

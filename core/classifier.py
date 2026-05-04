@@ -19,9 +19,9 @@ load_dotenv()
 MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 
-def classify(video_path: str) -> str:
-    """Return the best-matching template name for *video_path*."""
-    ranked = rank_templates(video_path)
+def classify(video_path: str = None, *, frame: np.ndarray = None) -> str:
+    """Return the best-matching template name. Pass either video_path or frame."""
+    ranked = rank_templates(video_path, frame=frame)
     if not ranked:
         raise RuntimeError("No templates found.")
 
@@ -29,16 +29,17 @@ def classify(video_path: str) -> str:
     runner = ranked[1] if len(ranked) > 1 else None
 
     # Clear winner → skip LLM entirely
-    if runner is None or top[1] > runner[1] * 1.3:
+    if runner is None or top[1] > runner[1] * 1.15:  # Tightened threshold to 15%
         return top[0]
 
     # Ambiguous → LLM picks between top 2
     print(f"  [tiebreak] {top[0]} ({top[1]:.0f}) vs {runner[0]} ({runner[1]:.0f}) → asking LLM")
-    return _llm_tiebreak(video_path, top, runner)
+    return _llm_tiebreak(video_path, frame, top, runner)
 
 
 def _llm_tiebreak(
-    video_path: str,
+    video_path: str | None,
+    frame: np.ndarray | None,
     a: tuple[str, float, str],
     b: tuple[str, float, str],
 ) -> str:
@@ -47,7 +48,8 @@ def _llm_tiebreak(
     if not api_key:
         raise ValueError("GROQ_API_KEY not set.")
 
-    frame = extract_frame(video_path)
+    if frame is None:
+        frame = extract_frame(video_path)
     _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
     b64 = base64.b64encode(buf).decode()
 
