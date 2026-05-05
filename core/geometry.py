@@ -25,6 +25,14 @@ def _detect_header_bottom(gray: np.ndarray) -> int:
     return int(np.argmax(profile))
 
 
+def _detect_bottom_bar_top(gray: np.ndarray) -> int:
+    cutoff = int(gray.shape[0] * 0.55)
+    zone = gray[cutoff:]
+    sobel = np.abs(cv2.Sobel(zone, cv2.CV_64F, 0, 1, ksize=3))
+    profile = np.convolve(sobel.mean(axis=1), np.ones(5) / 5, mode="same")
+    return int(np.argmax(profile)) + cutoff
+
+
 def _extract_panel_x_boundaries(cfg: dict) -> list[int]:
     """Derive vertical split x-positions from config panel regions."""
     skip = {"source_width", "source_height", "headline", "bottom_bar"}
@@ -57,7 +65,8 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
         frame = extract_frame(video_path)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     m_header = _detect_header_bottom(gray)
-    print(f"  [geometry] header_bottom={m_header}px")
+    m_bottom = _detect_bottom_bar_top(gray)
+    print(f"  [geometry] header_bottom={m_header}px, bottom_top={m_bottom}px")
 
     scored: list[tuple[str, float, str]] = []
     for folder in sorted(TEMPLATES_DIR.iterdir()):
@@ -71,9 +80,10 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
             continue
 
         exp_header = cfg.get("headline", {}).get("h", 0)
+        exp_bottom = cfg.get("bottom_bar", {}).get("y", 0)
         boundaries = _extract_panel_x_boundaries(cfg)
-        bottom_y = cfg.get("bottom_bar", {}).get("y", 520)
         panel_top = (exp_header or m_header) + 5
+        bottom_y = exp_bottom or m_bottom
 
         # Header score (0–100): how close is measured header to expected
         if exp_header > 0:
@@ -83,10 +93,18 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
         else:
             h_score = 0.0
 
+        # Bottom score (0–100): how close is measured bottom to expected
+        if exp_bottom > 0:
+            bot_score = max(0.0, 100 - abs(m_bottom - exp_bottom))
+        elif m_bottom > 670:
+            bot_score = 80.0
+        else:
+            bot_score = 0.0
+
         # Boundary score (0–100): % of config boundaries confirmed in frame
         b_score = _boundary_hit_rate(gray, panel_top, bottom_y, boundaries) * 100
 
-        total = h_score + b_score
+        total = h_score + bot_score + b_score
         scored.append((folder.name, total, desc))
 
     scored.sort(key=lambda x: x[1], reverse=True)
