@@ -8,6 +8,13 @@
 TEMPLATE_CONFIG: dict = {
     "source_width": 1280,
     "source_height": 720,
+
+    "headline": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 120,
+    },
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────

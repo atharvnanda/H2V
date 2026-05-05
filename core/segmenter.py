@@ -51,11 +51,29 @@ def build_segments(video_path: str) -> list[dict]:
         else:
             raw_labels.append(ranked[0][0])  # Top geometry guess
 
-    # 2. Debounce labels (median filter of size 3) to prevent 1-frame flickers
+    # 2. Debounce labels (require stability) to prevent flickers
     smooth_labels = list(raw_labels)
-    for i in range(1, len(raw_labels) - 1):
-        if raw_labels[i-1] == raw_labels[i+1] and raw_labels[i] != raw_labels[i-1]:
-            smooth_labels[i] = raw_labels[i-1]
+    if raw_labels:
+        STABLE_FRAMES = 3  # Need 3 consecutive identical frames (1.5s at 2fps) to switch
+        current_stable = raw_labels[0]
+        streak = 1
+        
+        for i in range(1, len(raw_labels)):
+            if raw_labels[i] == raw_labels[i-1]:
+                streak += 1
+            else:
+                streak = 1
+                
+            if streak == STABLE_FRAMES:
+                current_stable = raw_labels[i]
+                # Backdate the previous frames in the streak to the new stable layout
+                # This removes the 1.5s delay while still enforcing stability
+                for j in range(STABLE_FRAMES):
+                    smooth_labels[i - j] = current_stable
+            elif streak > STABLE_FRAMES:
+                smooth_labels[i] = current_stable
+            else:
+                smooth_labels[i] = current_stable
 
     # 3. Group into segments
     segments: list[dict] = []

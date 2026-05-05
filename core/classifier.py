@@ -54,10 +54,12 @@ def _llm_tiebreak(
     b64 = base64.b64encode(buf).decode()
 
     prompt = (
-        f"This broadcast frame matches one of these two layouts:\n\n"
+        f"Analyze the structural layout of this broadcast frame carefully. "
+        f"Pay close attention to the video area below the header and count the exact number of distinct video panels shown.\n\n"
+        f"Which of these two templates does the frame match?\n"
         f"A) {a[0]}: {a[2]}\n"
         f"B) {b[0]}: {b[2]}\n\n"
-        f"Reply with ONLY the exact name: {a[0]} or {b[0]}"
+        f"Reply with ONLY the exact template name: {a[0]} or {b[0]}"
     )
 
     client = Groq(api_key=api_key)
