@@ -23,7 +23,7 @@ def _detect_header_bottom(gray: np.ndarray) -> int:
     sobel = np.abs(cv2.Sobel(gray[:cutoff], cv2.CV_64F, 0, 1, ksize=3))
     profile = np.convolve(sobel.mean(axis=1), np.ones(5) / 5, mode="same")
     idx = int(np.argmax(profile))
-    if profile[idx] < 15:  # Too weak to be a deliberate graphic boundary
+    if profile[idx] < 10:  # Too weak to be a deliberate graphic boundary
         return 0
     return idx
 
@@ -34,7 +34,7 @@ def _detect_bottom_bar_top(gray: np.ndarray) -> int:
     sobel = np.abs(cv2.Sobel(zone, cv2.CV_64F, 0, 1, ksize=3))
     profile = np.convolve(sobel.mean(axis=1), np.ones(5) / 5, mode="same")
     idx = int(np.argmax(profile))
-    if profile[idx] < 15:  # Too weak to be a deliberate graphic boundary
+    if profile[idx] < 10:  # Too weak to be a deliberate graphic boundary
         return gray.shape[0]  # Fallback to bottom of frame (720)
     return idx + cutoff
 
@@ -52,31 +52,19 @@ def _extract_panel_x_boundaries(cfg: dict) -> list[int]:
 def _boundary_hit_rate(gray: np.ndarray, y_top: int, y_bot: int, x_positions: list[int]) -> float:
     """What fraction of expected boundaries have actual edges? (0.0–1.0)"""
     if not x_positions:
-        # Fullscreen: A pure fullscreen layout has no vertical split lines.
-        # By always returning 1.0, it gets max boundary score and wins if no other 
-        # templates get high boundary hits.
-        return 1.0
+        # Fullscreen: reward LOW internal edge density (no vertical splits expected)
+        zone = gray[max(y_top, 50):min(y_bot, 520), 100:-100]
+        density = np.abs(cv2.Sobel(zone, cv2.CV_64F, 1, 0, ksize=3)).mean()
+        return 1.0 if density < 12 else 0.0
 
     zone = gray[y_top:y_bot, :]
     sobel = np.abs(cv2.Sobel(zone, cv2.CV_64F, 1, 0, ksize=3))
-    
-    hits = 0
-    for x in x_positions:
-        # Check a narrow window around the expected x position
-        x_start = max(0, x - 3)
-        x_end = min(sobel.shape[1], x + 4)
-        window = sobel[:, x_start:x_end]
-        
-        # For a structural line, there should be a strong edge along most of the vertical span.
-        # Find the max edge strength in the window for each row.
-        row_max = window.max(axis=1)
-        
-        # A true structural line should cover most of the height. 
-        # We use > 0.40 (40%) to allow for overlay graphics (names, 'Live' bugs) that might cover parts of the line.
-        # This is relaxed from 60% so templates with more panels don't lose points due to large overlays.
-        if (row_max > 30).mean() > 0.40:
-            hits += 1
+    profile = np.convolve(sobel.mean(axis=0), np.ones(5) / 5, mode="same")
+    # 85th percentile: stricter than 75th — reduces false positives from
+    # content edges (bar charts, text columns) that aren't structural dividers.
+    threshold = np.percentile(profile[30:-30], 85)
 
+    hits = sum(1 for x in x_positions if 5 <= x < len(profile) - 5 and profile[x - 3:x + 4].max() > threshold)
     return hits / len(x_positions)
 
 
@@ -124,12 +112,11 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
         # Boundary score (0–100): % of config boundaries confirmed in frame
         hit_rate = _boundary_hit_rate(gray, panel_top, bottom_y, boundaries)
         b_score = hit_rate * 100
-        
-        # Complexity Bonus: Break mathematical ties by rewarding templates 
-        # that successfully match MORE structural boundaries. 
-        # +10 points per successfully confirmed boundary.
-        if boundaries:
-            b_score += (hit_rate * len(boundaries)) * 10
+        # NOTE: No complexity bonus — it causes N-panel templates to systematically
+        # outscore (N-1)-panel templates when both hit 100%, which is wrong.
+
+        print(f"    {folder.name}: h={h_score:.0f} bot={bot_score:.0f} b={b_score:.0f}(hit={hit_rate:.2f}, n={len(boundaries)})")
+
 
         total = h_score + bot_score + b_score
         scored.append((folder.name, total, desc))

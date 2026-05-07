@@ -107,31 +107,45 @@ def build_segments(video_path: str) -> list[dict]:
 
 
 def classify_segments(segments: list[dict], video_path: str) -> list[dict]:
-    """For each TEMPLATE segment, extract midpoint and run full classify()."""
+    """For each TEMPLATE segment, extract midpoint and run full classify().
+    Deduplicates by geom_guess so the same layout is only classified once.
+    """
     from core.classifier import classify
 
     cap = cv2.VideoCapture(video_path)
     native_fps = cap.get(cv2.CAP_PROP_FPS) or 25
 
+    # Cache: geom_guess → classified template name (avoids redundant LLM calls)
+    label_cache: dict[str, str] = {}
+
     for seg in segments:
         if seg["type"] != "TEMPLATE":
+            continue
+
+        geom = seg["geom_guess"]
+        if geom in label_cache:
+            seg["template"] = label_cache[geom]
+            print(f"  [classify] {geom} → {label_cache[geom]} (cached)")
             continue
 
         mid_ts = (seg["start"] + seg["end"]) / 2
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(mid_ts * native_fps))
         ok, frame = cap.read()
         if not ok:
-            seg["template"] = seg["geom_guess"]
+            seg["template"] = geom
+            label_cache[geom] = geom
             continue
-        
+
         if frame.shape[:2] != (720, 1280):
             frame = cv2.resize(frame, (1280, 720))
 
-        # Full classification (Geometry + LLM Tiebreaker if needed)
         try:
-            seg["template"] = classify(frame=frame)
+            result = classify(frame=frame)
         except Exception:
-            seg["template"] = seg["geom_guess"]
+            result = geom
+
+        seg["template"] = result
+        label_cache[geom] = result
 
     cap.release()
     return segments

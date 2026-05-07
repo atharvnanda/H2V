@@ -9,6 +9,7 @@ import base64
 import os
 
 import cv2
+import numpy as np
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -54,9 +55,9 @@ def _llm_tiebreak(
     b64 = base64.b64encode(buf).decode()
 
     prompt = (
-        f"Analyze the structural layout of this broadcast frame carefully. "
-        f"Pay close attention to the video area below the header and count the exact number of distinct video panels shown.\n\n"
-        f"Which of these two templates does the frame match?\n"
+        f"Look at this broadcast news frame. Count the number of distinct VERTICAL video panel columns "
+        f"in the area below the top header bar (ignore stacked sub-frames within a single column).\n\n"
+        f"Choose the template that matches the COLUMN count and layout:\n"
         f"A) {a[0]}: {a[2]}\n"
         f"B) {b[0]}: {b[2]}\n\n"
         f"Reply with ONLY the exact template name: {a[0]} or {b[0]}"
