@@ -15,6 +15,20 @@ TEMPLATE_CONFIG: dict = {
         "w": 1280,
         "h": 120,
     },
+
+    "graphics": {
+        "x": 115,
+        "y": 207,
+        "w": 1049,
+        "h": 258,
+    },
+
+    "bottom_bar": {
+        "x": 0,
+        "y": 466,
+        "w": 1280,
+        "h": 254,
+    }
 }
 
 # ── Auto-detection hint (used by core/classifier.py) ──────────────────────────
