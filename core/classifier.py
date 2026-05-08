@@ -1,7 +1,8 @@
 """core/classifier.py — Hybrid template detection.
 
 1. OpenCV geometry scoring  (header height + panel count)
-2. Groq LLM tiebreaker      (only when top-2 scores are close)
+2. Boundary count tiebreaker (confirmed structural dividers)
+3. Groq LLM tiebreaker      (only when geometry + boundaries are both tied)
 """
 from __future__ import annotations
 
@@ -26,14 +27,23 @@ def classify(video_path: str = None, *, frame: np.ndarray = None) -> str:
     if not ranked:
         raise RuntimeError("No templates found.")
 
-    top = ranked[0]       # (name, score, desc)
+    top = ranked[0]       # (name, score, desc, n_confirmed)
     runner = ranked[1] if len(ranked) > 1 else None
 
-    # Clear winner → skip LLM entirely
-    if runner is None or top[1] > runner[1] * 1.15:  # Tightened threshold to 15%
+    # Clear winner → skip everything
+    if runner is None or top[1] > runner[1] * 1.15:
         return top[0]
 
-    # Ambiguous → LLM picks between top 2
+    # Scores are close → try confirmed boundary count as tiebreaker first
+    top_confirmed = top[3]
+    runner_confirmed = runner[3]
+    if top_confirmed != runner_confirmed:
+        winner = top[0] if top_confirmed > runner_confirmed else runner[0]
+        print(f"  [tiebreak] {top[0]} ({top[1]:.0f}, b={top_confirmed}) vs "
+              f"{runner[0]} ({runner[1]:.0f}, b={runner_confirmed}) → boundary count wins: {winner}")
+        return winner
+
+    # Boundary count also tied → ask LLM
     print(f"  [tiebreak] {top[0]} ({top[1]:.0f}) vs {runner[0]} ({runner[1]:.0f}) → asking LLM")
     return _llm_tiebreak(video_path, frame, top, runner)
 
@@ -41,8 +51,8 @@ def classify(video_path: str = None, *, frame: np.ndarray = None) -> str:
 def _llm_tiebreak(
     video_path: str | None,
     frame: np.ndarray | None,
-    a: tuple[str, float, str],
-    b: tuple[str, float, str],
+    a: tuple[str, float, str, int],
+    b: tuple[str, float, str, int],
 ) -> str:
     """Ask LLM to choose between two candidate templates."""
     api_key = os.getenv("GROQ_API_KEY")
@@ -55,12 +65,16 @@ def _llm_tiebreak(
     b64 = base64.b64encode(buf).decode()
 
     prompt = (
-        f"Look at this broadcast news frame. Count the number of distinct VERTICAL video panel columns "
-        f"in the area below the top header bar (ignore stacked sub-frames within a single column).\n\n"
-        f"Choose the template that matches the COLUMN count and layout:\n"
+        f"You are analyzing an Indian broadcast news frame to identify its layout template.\n\n"
+        f"TASK: Look at the video panel area BELOW the headline/header text. "
+        f"Count how many distinct vertical video columns are separated by visible dividing lines. "
+        f"Do NOT count sub-panels stacked within the same column.\n\n"
+        f"CANDIDATE TEMPLATES:\n"
         f"A) {a[0]}: {a[2]}\n"
         f"B) {b[0]}: {b[2]}\n\n"
-        f"Reply with ONLY the exact template name: {a[0]} or {b[0]}"
+        f"Step 1: Count the vertical video columns you see below the header.\n"
+        f"Step 2: Match that count to the correct template.\n"
+        f"Step 3: Reply with ONLY the exact template name — either '{a[0]}' or '{b[0]}'. No other text."
     )
 
     client = Groq(api_key=api_key)
@@ -73,8 +87,12 @@ def _llm_tiebreak(
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
             ],
         }],
-        max_tokens=32,
+        max_tokens=50,
     )
 
     result = resp.choices[0].message.content.strip()
-    return result if result in (a[0], b[0]) else a[0]  # fallback to top scorer
+    # Extract exact template name even if LLM included extra reasoning text
+    for candidate in (a[0], b[0]):
+        if candidate in result:
+            return candidate
+    return a[0]  # fallback to top geometry scorer
