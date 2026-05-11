@@ -23,7 +23,7 @@ def _detect_header_bottom(gray: np.ndarray) -> int:
     sobel = np.abs(cv2.Sobel(gray[:cutoff], cv2.CV_64F, 0, 1, ksize=3))
     profile = np.convolve(sobel.mean(axis=1), np.ones(5) / 5, mode="same")
     idx = int(np.argmax(profile))
-    if profile[idx] < 10:  # Too weak to be a deliberate graphic boundary
+    if profile[idx] < 10:
         return 0
     return idx
 
@@ -34,23 +34,77 @@ def _detect_bottom_bar_top(gray: np.ndarray) -> int:
     sobel = np.abs(cv2.Sobel(zone, cv2.CV_64F, 0, 1, ksize=3))
     profile = np.convolve(sobel.mean(axis=1), np.ones(5) / 5, mode="same")
     idx = int(np.argmax(profile))
-    if profile[idx] < 10:  # Too weak to be a deliberate graphic boundary
-        return gray.shape[0]  # Fallback to bottom of frame (720)
+    if profile[idx] < 10:
+        return gray.shape[0]
     return idx + cutoff
 
 
 def _extract_panel_x_boundaries(cfg: dict) -> list[int]:
     """Derive vertical split x-positions from config panel regions."""
-    skip = {"source_width", "source_height", "headline", "bottom_bar"}
+    skip = {"source_width", "source_height", "headline", "bottom_bar", "graphics", "footer"}
     panels = [v for k, v in cfg.items() if k not in skip and isinstance(v, dict) and "x" in v]
     panels.sort(key=lambda p: p["x"])
-    # Boundary = midpoint between one panel's right edge and next panel's left edge
     return [(panels[i]["x"] + panels[i]["w"] + panels[i + 1]["x"]) // 2
             for i in range(len(panels) - 1)]
 
 
+def _is_structural_divider(
+    sobel_full: np.ndarray,
+    profile: np.ndarray,
+    x: int,
+    min_span_fraction: float = 0.70,
+    max_half_width: int = 6,
+) -> bool:
+    """Return True only if the edge at x looks like a real panel divider line.
+
+    Two checks must BOTH pass:
+
+    1. Vertical span continuity — a structural divider runs the full height of
+       the content zone. Text/graphic edges only exist where the glyph or shape
+       is. Threshold raised to 0.70: real dividers hit 0.85+, content edges
+       from bold text/graphics rarely exceed 0.65.
+
+    2. Width/narrowness — a physical 2-5px line produces a narrow spike in the
+       column-averaged Sobel profile. Text strokes are 15-30px wide; divider
+       lines are typically ≤ 6px wide on each side.
+    """
+    # --- Check 1: vertical span continuity ---
+    x_lo = max(0, x - 2)
+    x_hi = min(sobel_full.shape[1], x + 3)
+    col_strip = sobel_full[:, x_lo:x_hi].max(axis=1)
+    span_fraction = (col_strip > 20).mean()
+    if span_fraction < min_span_fraction:
+        return False
+
+    # --- Check 2: peak width (half-max width on each side) ---
+    peak_val = profile[x]
+    half_max = peak_val / 2.0
+    profile_len = len(profile)
+
+    left_width = 0
+    for i in range(1, 40):
+        if x - i < 0 or profile[x - i] < half_max:
+            left_width = i - 1
+            break
+    else:
+        left_width = 39
+
+    right_width = 0
+    for i in range(1, 40):
+        if x + i >= profile_len or profile[x + i] < half_max:
+            right_width = i - 1
+            break
+    else:
+        right_width = 39
+
+    if left_width > max_half_width or right_width > max_half_width:
+        return False
+
+    return True
+
+
 def _boundary_hit_rate(gray: np.ndarray, y_top: int, y_bot: int, x_positions: list[int]) -> float:
-    """What fraction of expected boundaries have actual edges? (0.0–1.0)"""
+    """What fraction of expected boundaries have actual structural divider edges? (0.0–1.0)"""
     if not x_positions:
         # Fullscreen: reward LOW internal edge density (no vertical splits expected)
         zone = gray[max(y_top, 50):min(y_bot, 520), 100:-100]
@@ -58,17 +112,25 @@ def _boundary_hit_rate(gray: np.ndarray, y_top: int, y_bot: int, x_positions: li
         return 1.0 if density < 12 else 0.0
 
     zone = gray[y_top:y_bot, :]
-    sobel = np.abs(cv2.Sobel(zone, cv2.CV_64F, 1, 0, ksize=3))
-    profile = np.convolve(sobel.mean(axis=0), np.ones(5) / 5, mode="same")
-    # 85th percentile: stricter than 75th — reduces false positives from
-    # content edges (bar charts, text columns) that aren't structural dividers.
+    sobel_zone = np.abs(cv2.Sobel(zone, cv2.CV_64F, 1, 0, ksize=3))
+    profile = np.convolve(sobel_zone.mean(axis=0), np.ones(5) / 5, mode="same")
     threshold = np.percentile(profile[30:-30], 85)
 
-    hits = sum(1 for x in x_positions if 5 <= x < len(profile) - 5 and profile[x - 3:x + 4].max() > threshold)
+    hits = 0
+    for x in x_positions:
+        if x < 5 or x >= len(profile) - 5:
+            continue
+        # Pre-filter: must be a local peak above global threshold (cheap)
+        if profile[x - 3:x + 4].max() <= threshold:
+            continue
+        # Structural divider tests: span continuity + narrowness
+        if _is_structural_divider(sobel_zone, profile, x):
+            hits += 1
+
     return hits / len(x_positions)
 
 
-def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[tuple[str, float, str]]:
+def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[tuple[str, float, str, int]]:
     if frame is None:
         frame = extract_frame(video_path)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -76,7 +138,7 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
     m_bottom = _detect_bottom_bar_top(gray)
     print(f"  [geometry] header_bottom={m_header}px, bottom_top={m_bottom}px")
 
-    scored: list[tuple[str, float, str]] = []
+    scored: list[tuple[str, float, str, int]] = []
     for folder in sorted(TEMPLATES_DIR.iterdir()):
         if not folder.is_dir() or folder.name.startswith("_"):
             continue
@@ -93,7 +155,7 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
         panel_top = (exp_header or m_header) + 5
         bottom_y = exp_bottom or m_bottom
 
-        # Header score (0–100): how close is measured header to expected
+        # Header score (0–100)
         if exp_header > 0:
             h_score = max(0.0, 100 - abs(m_header - exp_header))
         elif m_header < 50:
@@ -101,7 +163,7 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
         else:
             h_score = 0.0
 
-        # Bottom score (0–100): how close is measured bottom to expected
+        # Bottom score (0–100)
         if exp_bottom > 0:
             bot_score = max(0.0, 100 - abs(m_bottom - exp_bottom))
         elif m_bottom > 670:
@@ -109,17 +171,26 @@ def rank_templates(video_path: str = None, *, frame: np.ndarray = None) -> list[
         else:
             bot_score = 0.0
 
-        # Boundary score (0–100): % of config boundaries confirmed in frame
+        # Boundary score: scale max weight by how much h+bot evidence supports
+        # this template. A boundary hit on a template with weak h+bot scores
+        # (e.g. correct header but totally wrong bottom bar) gets reduced weight,
+        # preventing a single false-positive boundary from overriding a template
+        # with strong structural evidence.
         hit_rate = _boundary_hit_rate(gray, panel_top, bottom_y, boundaries)
-        b_score = hit_rate * 100
-        # NOTE: No complexity bonus — it causes N-panel templates to systematically
-        # outscore (N-1)-panel templates when both hit 100%, which is wrong.
+        evidence_score = h_score + bot_score
+        if evidence_score >= 150:
+            b_weight = 100   # strong h+bot evidence → full boundary weight
+        elif evidence_score >= 80:
+            b_weight = 70    # moderate evidence → reduced boundary weight
+        else:
+            b_weight = 40    # weak evidence → boundary hit carries little weight
+        b_score = hit_rate * b_weight
+
+        n_confirmed = round(hit_rate * len(boundaries))
 
         print(f"    {folder.name}: h={h_score:.0f} bot={bot_score:.0f} b={b_score:.0f}(hit={hit_rate:.2f}, n={len(boundaries)})")
 
-
         total = h_score + bot_score + b_score
-        n_confirmed = round(hit_rate * len(boundaries))  # actual confirmed boundary count
         scored.append((folder.name, total, desc, n_confirmed))
 
     scored.sort(key=lambda x: x[1], reverse=True)

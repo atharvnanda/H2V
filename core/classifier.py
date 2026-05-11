@@ -1,7 +1,7 @@
 """core/classifier.py — Hybrid template detection.
 
 1. OpenCV geometry scoring  (header height + panel count)
-2. Boundary count tiebreaker (confirmed structural dividers)
+2. Boundary count tiebreaker (confirmed structural dividers, only between multi-panel templates)
 3. Groq LLM tiebreaker      (only when geometry + boundaries are both tied)
 """
 from __future__ import annotations
@@ -30,20 +30,25 @@ def classify(video_path: str = None, *, frame: np.ndarray = None) -> str:
     top = ranked[0]       # (name, score, desc, n_confirmed)
     runner = ranked[1] if len(ranked) > 1 else None
 
-    # Clear winner → skip everything
+    # Clear winner — score gap > 15% → trust geometry, skip everything
     if runner is None or top[1] > runner[1] * 1.15:
         return top[0]
 
-    # Scores are close → try confirmed boundary count as tiebreaker first
+    # Scores are close → try confirmed boundary count as tiebreaker ONLY when
+    # both candidates have boundaries to compare (i.e. neither is fullscreen).
+    # Fullscreen has n_confirmed=0 by design, so comparing it against a
+    # multi-panel template that confirmed 1+ boundaries is unfair — the score
+    # already encodes the right answer in that case.
     top_confirmed = top[3]
     runner_confirmed = runner[3]
-    if top_confirmed != runner_confirmed:
+    both_have_boundaries = top_confirmed > 0 and runner_confirmed > 0
+    if both_have_boundaries and top_confirmed != runner_confirmed:
         winner = top[0] if top_confirmed > runner_confirmed else runner[0]
         print(f"  [tiebreak] {top[0]} ({top[1]:.0f}, b={top_confirmed}) vs "
               f"{runner[0]} ({runner[1]:.0f}, b={runner_confirmed}) → boundary count wins: {winner}")
         return winner
 
-    # Boundary count also tied → ask LLM
+    # Boundary count tied (or one is fullscreen) → ask LLM
     print(f"  [tiebreak] {top[0]} ({top[1]:.0f}) vs {runner[0]} ({runner[1]:.0f}) → asking LLM")
     return _llm_tiebreak(video_path, frame, top, runner)
 
