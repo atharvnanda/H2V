@@ -196,6 +196,162 @@
 
     .btn-group { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
 
+    /* ── Tabs style ───────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: rgba(255 255 255 / 0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 1.5rem;
+      width: 100%;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-family: var(--font);
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    
+    .mode-content {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    .mode-content.active {
+      display: flex;
+    }
+
+    /* ── Input forms style ─────────────────────────────────────────────────── */
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      width: 100%;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.45rem;
+      width: 100%;
+      text-align: left;
+    }
+    .input-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.88rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.25);
+    }
+
+    /* ── Double range trimmer slider style ────────────────────────────────── */
+    .trimmer-container {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1rem;
+      margin: 0.25rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .range-slider {
+      position: relative;
+      width: 100%;
+      height: 6px;
+      margin: 10px 0;
+    }
+    .slider-track {
+      position: absolute;
+      height: 100%;
+      background: rgba(255 255 255 / 0.1);
+      border-radius: 3px;
+      width: 100%;
+      top: 0;
+      z-index: 1;
+    }
+    .range-slider input[type="range"] {
+      position: absolute;
+      width: 100%;
+      height: 6px;
+      background: none;
+      pointer-events: none;
+      -webkit-appearance: none;
+      appearance: none;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+    .range-slider input[type="range"]::-webkit-slider-thumb {
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      border: 2px solid var(--accent);
+      cursor: pointer;
+      pointer-events: auto;
+      -webkit-appearance: none;
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
+      transition: transform 0.1s;
+    }
+    .range-slider input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .range-slider input[type="range"]::-moz-range-thumb {
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      border: 2px solid var(--accent);
+      cursor: pointer;
+      pointer-events: auto;
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
+      transition: transform 0.1s;
+    }
+    .range-slider input[type="range"]::-moz-range-thumb:hover {
+      transform: scale(1.2);
+    }
+    .trim-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .trim-legend span {
+      color: var(--text);
+      font-weight: 600;
+    }
+
     /* ── Error state ──────────────────────────────────────────────────────── */
     .error-text { color: var(--danger); font-size: .88rem; line-height: 1.5; }
 
@@ -214,17 +370,77 @@
 
   <!-- ────── Upload View ────── -->
   <div id="view-upload" class="view active">
-    <div class="dropzone" id="dropzone">
-      <div class="dropzone-icon">📁</div>
-      <div class="dropzone-label">
-        Drag & drop your video here<br/>or <strong>click to browse</strong>
-      </div>
-      <input type="file" id="file-input" accept="video/*" />
+    <!-- Tabs toggler -->
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-upload">Upload File</button>
+      <button class="tab-btn" id="tab-live">Livestream Cut</button>
     </div>
-    <div class="file-name" id="file-name"></div>
-    <button class="btn" id="btn-upload" disabled>
-      <span>⬆</span> Convert Video
-    </button>
+
+    <!-- Upload Mode -->
+    <div id="mode-upload" class="mode-content active">
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">📁</div>
+        <div class="dropzone-label">
+          Drag & drop your video here<br/>or <strong>click to browse</strong>
+        </div>
+        <input type="file" id="file-input" accept="video/*" />
+      </div>
+      <div class="file-name" id="file-name"></div>
+      <button class="btn" id="btn-upload" disabled style="width: 100%;">
+        <span>⬆</span> Convert Video
+      </button>
+    </div>
+
+    <!-- Livestream Cut Mode -->
+    <div id="mode-live" class="mode-content">
+      <div class="input-group">
+        <label for="live-url">YouTube Livestream URL</label>
+        <input type="text" id="live-url" placeholder="https://www.youtube.com/watch?v=..." />
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label for="live-time-ago">Time Ago (e.g. 5m, 120s)</label>
+          <input type="text" id="live-time-ago" placeholder="e.g. 2m" />
+        </div>
+        <div class="input-group">
+          <label for="live-duration">Duration (seconds)</label>
+          <input type="number" id="live-duration" placeholder="e.g. 30" min="5" value="30" />
+        </div>
+      </div>
+      <button class="btn" id="btn-live-cut" style="width: 100%; margin-top: 0.4rem;">
+        <span>✂</span> Extract Clip
+      </button>
+    </div>
+  </div>
+
+  <!-- ────── Review View ────── -->
+  <div id="view-review" class="view">
+    <div class="logo" style="font-size: 0.95rem; margin-bottom: 0;">Review Extracted Clip</div>
+    <div class="subtitle" style="font-size: 0.78rem; margin-bottom: 0.5rem;">Trim the clip before vertical conversion</div>
+    
+    <video id="review-video" class="video-preview" controls playsinline style="max-height: 220px;"></video>
+    
+    <div class="trimmer-container">
+      <div class="range-slider">
+        <div class="slider-track" id="slider-track"></div>
+        <input type="range" id="trim-start" min="0" max="100" step="0.1" value="0">
+        <input type="range" id="trim-end" min="0" max="100" step="0.1" value="100">
+      </div>
+      <div class="trim-legend">
+        <div>Start: <span id="trim-start-label">0.0</span>s</div>
+        <div>End: <span id="trim-end-label">30.0</span>s</div>
+        <div>Duration: <span id="trim-duration-label">30.0</span>s</div>
+      </div>
+    </div>
+    
+    <div class="btn-group" style="width: 100%;">
+      <button class="btn btn-outline" id="btn-review-back" style="flex: 1;">
+        <span>←</span> Back
+      </button>
+      <button class="btn" id="btn-review-confirm" style="flex: 2;">
+        <span>✓</span> Confirm & Convert
+      </button>
+    </div>
   </div>
 
   <!-- ────── Loading View ────── -->
@@ -264,26 +480,144 @@
   "use strict";
 
   // ── Elements ─────────────────────────────────────────────────────────────
-  const views     = document.querySelectorAll('.view');
-  const dropzone  = document.getElementById('dropzone');
-  const fileInput = document.getElementById('file-input');
-  const fileName  = document.getElementById('file-name');
-  const btnUpload = document.getElementById('btn-upload');
-  const statusTxt = document.getElementById('status-text');
-  const videoEl   = document.getElementById('video-preview');
-  const btnDL     = document.getElementById('btn-download');
-  const btnNew    = document.getElementById('btn-new');
-  const btnRetry  = document.getElementById('btn-retry');
-  const errorTxt  = document.getElementById('error-text');
+  const views           = document.querySelectorAll('.view');
+  const dropzone        = document.getElementById('dropzone');
+  const fileInput       = document.getElementById('file-input');
+  const fileName        = document.getElementById('file-name');
+  const btnUpload       = document.getElementById('btn-upload');
+  const statusTxt       = document.getElementById('status-text');
+  const videoEl         = document.getElementById('video-preview');
+  const btnDL           = document.getElementById('btn-download');
+  const btnNew          = document.getElementById('btn-new');
+  const btnRetry        = document.getElementById('btn-retry');
+  const errorTxt        = document.getElementById('error-text');
 
-  let selectedFile = null;
-  let pollTimer    = null;
+  // New Live Cut Tabs & Inputs
+  const tabUpload       = document.getElementById('tab-upload');
+  const tabLive         = document.getElementById('tab-live');
+  const modeUpload      = document.getElementById('mode-upload');
+  const modeLive        = document.getElementById('mode-live');
+  const liveUrlInput    = document.getElementById('live-url');
+  const liveTimeInput   = document.getElementById('live-time-ago');
+  const liveDurInput    = document.getElementById('live-duration');
+  const btnLiveCut      = document.getElementById('btn-live-cut');
+
+  // Review screen
+  const reviewVideo      = document.getElementById('review-video');
+  const sliderTrack      = document.getElementById('slider-track');
+  const trimStartInput   = document.getElementById('trim-start');
+  const trimEndInput     = document.getElementById('trim-end');
+  const trimStartLabel   = document.getElementById('trim-start-label');
+  const trimEndLabel     = document.getElementById('trim-end-label');
+  const trimDurationLabel= document.getElementById('trim-duration-label');
+  const btnReviewBack    = document.getElementById('btn-review-back');
+  const btnReviewConfirm = document.getElementById('btn-review-confirm');
+
+  let selectedFile       = null;
+  let pollTimer          = null;
+  let currentLiveCutId   = null;
+  let requestedDuration  = 30.0;
 
   // ── View management ──────────────────────────────────────────────────────
   function showView(id) {
     views.forEach(v => v.classList.remove('active'));
     document.getElementById(id).classList.add('active');
   }
+
+  // ── Tabs selection ───────────────────────────────────────────────────────
+  tabUpload.addEventListener('click', () => {
+    tabUpload.classList.add('active');
+    tabLive.classList.remove('active');
+    modeUpload.classList.add('active');
+    modeLive.classList.remove('active');
+  });
+
+  tabLive.addEventListener('click', () => {
+    tabLive.classList.add('active');
+    tabUpload.classList.remove('active');
+    modeLive.classList.add('active');
+    modeUpload.classList.remove('active');
+  });
+
+  // ── Time Ago Parsing Helper ──────────────────────────────────────────────
+  function parseTimeAgo(str) {
+    str = str.trim().toLowerCase();
+    if (!str) return 0;
+    
+    const match = str.match(/^(\d+(?:\.\d+)?)\s*([hms])?$/);
+    if (!match) {
+      const val = parseFloat(str);
+      return isNaN(val) ? 0 : val;
+    }
+    
+    const num = parseFloat(match[1]);
+    const unit = match[2];
+    
+    if (unit === 'h') return num * 3600;
+    if (unit === 'm') return num * 60;
+    if (unit === 's') return num;
+    return num;
+  }
+
+  // ── Double Range Slider Logic ────────────────────────────────────────────
+  function updateSliderTrack() {
+    const minVal = parseFloat(trimStartInput.value);
+    const maxVal = parseFloat(trimEndInput.value);
+    const maxLimit = parseFloat(trimStartInput.max) || 100;
+    
+    const percentStart = (minVal / maxLimit) * 100;
+    const percentEnd = (maxVal / maxLimit) * 100;
+    
+    sliderTrack.style.background = `linear-gradient(to right, 
+      rgba(255, 255, 255, 0.1) ${percentStart}%, 
+      var(--accent) ${percentStart}%, 
+      var(--accent) ${percentEnd}%, 
+      rgba(255, 255, 255, 0.1) ${percentEnd}%)`;
+  }
+
+  trimStartInput.addEventListener('input', () => {
+    let valStart = parseFloat(trimStartInput.value);
+    let valEnd = parseFloat(trimEndInput.value);
+    
+    if (valStart >= valEnd - 0.5) {
+      trimStartInput.value = valEnd - 0.5;
+      valStart = valEnd - 0.5;
+    }
+    
+    trimStartLabel.textContent = valStart.toFixed(1);
+    trimDurationLabel.textContent = (valEnd - valStart).toFixed(1);
+    updateSliderTrack();
+    
+    reviewVideo.currentTime = valStart;
+  });
+
+  trimEndInput.addEventListener('input', () => {
+    let valStart = parseFloat(trimStartInput.value);
+    let valEnd = parseFloat(trimEndInput.value);
+    
+    if (valEnd <= valStart + 0.5) {
+      trimEndInput.value = valStart + 0.5;
+      valEnd = valStart + 0.5;
+    }
+    
+    trimEndLabel.textContent = valEnd.toFixed(1);
+    trimDurationLabel.textContent = (valEnd - valStart).toFixed(1);
+    updateSliderTrack();
+    
+    reviewVideo.currentTime = valEnd;
+  });
+
+  reviewVideo.addEventListener('loadedmetadata', () => {
+    const dur = reviewVideo.duration || requestedDuration;
+    trimStartInput.max = dur;
+    trimEndInput.max = dur;
+    trimStartInput.value = 0;
+    trimEndInput.value = dur;
+    trimStartLabel.textContent = "0.0";
+    trimEndLabel.textContent = dur.toFixed(1);
+    trimDurationLabel.textContent = dur.toFixed(1);
+    updateSliderTrack();
+  });
 
   // ── Drag & drop ──────────────────────────────────────────────────────────
   dropzone.addEventListener('click', () => fileInput.click());
@@ -309,7 +643,7 @@
     btnUpload.disabled = false;
   }
 
-  // ── Upload ───────────────────────────────────────────────────────────────
+  // ── Upload Local File ────────────────────────────────────────────────────
   btnUpload.addEventListener('click', async () => {
     if (!selectedFile) return;
     btnUpload.disabled = true;
@@ -324,19 +658,128 @@
       if (!res.ok) throw new Error(`Upload failed (${res.status})`);
 
       const { job_id } = await res.json();
-      startPolling(job_id);
+      startPolling(job_id, '/status');
     } catch (err) {
       showError(err.message);
     }
   });
 
-  // ── Polling ──────────────────────────────────────────────────────────────
-  function startPolling(jobId) {
+  // ── Livestream Cut Request ────────────────────────────────────────────────
+  btnLiveCut.addEventListener('click', async () => {
+    const url = liveUrlInput.value.trim();
+    const timeAgoStr = liveTimeInput.value.trim();
+    const duration = parseFloat(liveDurInput.value);
+
+    if (!url) {
+      alert("Please enter a valid YouTube livestream URL.");
+      return;
+    }
+    if (!timeAgoStr) {
+      alert("Please specify how far back to cut from (e.g. 5m or 120s).");
+      return;
+    }
+    if (isNaN(duration) || duration < 5) {
+      alert("Please specify a duration of at least 5 seconds.");
+      return;
+    }
+
+    const secondsAgo = parseTimeAgo(timeAgoStr);
+    requestedDuration = duration;
+
+    showView('view-loading');
+    statusTxt.textContent = 'Initializing livestream clip extraction…';
+
+    try {
+      const res = await fetch('/live-cut', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, seconds_ago: secondsAgo, duration })
+      });
+
+      if (!res.ok) throw new Error(`Live cut request failed (${res.status})`);
+
+      const { job_id } = await res.json();
+      startPollingLiveCut(job_id);
+    } catch (err) {
+      showError(err.message);
+    }
+  });
+
+  // ── Polling live cut status ──────────────────────────────────────────────
+  function startPollingLiveCut(jobId) {
     if (pollTimer) clearInterval(pollTimer);
 
     pollTimer = setInterval(async () => {
       try {
-        const res = await fetch(`/status/${jobId}`);
+        const res = await fetch(`/live-cut/status/${jobId}`);
+        if (!res.ok) throw new Error(`Live cut status check failed (${res.status})`);
+
+        const data = await res.json();
+        statusTxt.textContent = data.detail || 'Extracting livestream clip…';
+
+        if (data.state === 'done') {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          currentLiveCutId = jobId;
+          
+          // Serve the extracted clip in the Review screen
+          reviewVideo.src = data.output_url;
+          showView('view-review');
+        } else if (data.state === 'error') {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          showError(data.detail);
+        }
+      } catch (err) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showError(err.message);
+      }
+    }, 2000);
+  }
+
+  // ── Review Screen Interactions ───────────────────────────────────────────
+  btnReviewBack.addEventListener('click', () => {
+    reviewVideo.pause();
+    reviewVideo.src = '';
+    showView('view-upload');
+  });
+
+  btnReviewConfirm.addEventListener('click', async () => {
+    reviewVideo.pause();
+    const trimStart = parseFloat(trimStartInput.value);
+    const trimEnd = parseFloat(trimEndInput.value);
+
+    showView('view-loading');
+    statusTxt.textContent = 'Trimming video & analyzing structure…';
+
+    try {
+      const res = await fetch('/process-vertical', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_id: currentLiveCutId,
+          trim_start: trimStart,
+          trim_end: trimEnd
+        })
+      });
+
+      if (!res.ok) throw new Error(`Vertical processing request failed (${res.status})`);
+
+      const { job_id } = await res.json();
+      startPolling(job_id, '/status');
+    } catch (err) {
+      showError(err.message);
+    }
+  });
+
+  // ── Polling Standard Job status ──────────────────────────────────────────
+  function startPolling(jobId, endpointPrefix) {
+    if (pollTimer) clearInterval(pollTimer);
+
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${endpointPrefix}/${jobId}`);
         if (!res.ok) throw new Error(`Status check failed (${res.status})`);
 
         const data = await res.json();
@@ -379,6 +822,8 @@
     fileName.textContent = '';
     btnUpload.disabled = true;
     videoEl.src = '';
+    reviewVideo.src = '';
+    currentLiveCutId = null;
     showView('view-upload');
   }
 
