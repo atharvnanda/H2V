@@ -45,11 +45,11 @@ def classify(video_path: str = None, *, frame: np.ndarray = None) -> str:
     if both_have_boundaries and top_confirmed != runner_confirmed:
         winner = top[0] if top_confirmed > runner_confirmed else runner[0]
         print(f"  [tiebreak] {top[0]} ({top[1]:.0f}, b={top_confirmed}) vs "
-              f"{runner[0]} ({runner[1]:.0f}, b={runner_confirmed}) → boundary count wins: {winner}")
+              f"{runner[0]} ({runner[1]:.0f}, b={runner_confirmed}) -> boundary count wins: {winner}")
         return winner
 
-    # Boundary count tied (or one is fullscreen) → ask LLM
-    print(f"  [tiebreak] {top[0]} ({top[1]:.0f}) vs {runner[0]} ({runner[1]:.0f}) → asking LLM")
+    # Boundary count tied (or one is fullscreen) -> ask LLM
+    print(f"  [tiebreak] {top[0]} ({top[1]:.0f}) vs {runner[0]} ({runner[1]:.0f}) -> asking LLM")
     return _llm_tiebreak(video_path, frame, top, runner)
 
 

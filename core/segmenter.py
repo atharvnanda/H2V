@@ -134,7 +134,7 @@ def classify_segments(segments: list[dict], video_path: str) -> list[dict]:
             result = geom
 
         seg["template"] = result
-        print(f"  [classify] {geom} → {result}")
+        print(f"  [classify] {geom} -> {result}")
 
     cap.release()
     return segments
@@ -148,7 +148,7 @@ def segment_video(video_path: str) -> list[dict]:
     segments = classify_segments(segments, video_path)
 
     for seg in segments:
-        label = seg.get("template") or seg.get("geom_guess") or "—"
-        print(f"  {seg['type']:12s}  {seg['start']:6.1f}s – {seg['end']:6.1f}s  → {label}")
+        label = seg.get("template") or seg.get("geom_guess") or "-"
+        print(f"  {seg['type']:12s}  {seg['start']:6.1f}s - {seg['end']:6.1f}s  -> {label}")
 
     return segments
