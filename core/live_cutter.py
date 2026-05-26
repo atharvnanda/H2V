@@ -87,7 +87,16 @@ def extract_livestream_clip(youtube_url: str, seconds_ago: float, duration: floa
     if not segment_urls:
         raise RuntimeError("No HLS segments found in the media playlist manifest.")
         
-    # Extract base URL and found sequence
+    # Extract base URL, found sequence, and segment duration
+    # Default to 5.0 but update if #EXTINF provides the real duration
+    segment_duration = 5.0
+    for line in manifest_lines:
+        if line.startswith("#EXTINF:"):
+            match = re.search(r'#EXTINF:([\d\.]+)', line)
+            if match:
+                segment_duration = float(match.group(1))
+                break
+                
     base_seg_url = segment_urls[0]
     sq_match = re.search(r'/sq/(\d+)', base_seg_url)
     if not sq_match:
@@ -109,15 +118,22 @@ def extract_livestream_clip(youtube_url: str, seconds_ago: float, duration: floa
     print(f"[live_cutter] Parsed sequence ranges. Found base SQ: {found_sq}, latest current SQ: {current_sq}")
     
     # Calculate target sequence numbers
-    # Each segment on YouTube is typically 5.0 seconds.
-    segment_duration = 5.0
-    segments_back = int(seconds_ago / segment_duration)
-    num_segments = int(math.ceil(duration / segment_duration))
+    # We want to start `seconds_ago` in the past.
+    # Chunk `current_sq - k` ends at `k * segment_duration` ago, and starts at `(k + 1) * segment_duration` ago.
+    # We need the chunk where `(k + 1) * segment_duration > seconds_ago`.
+    k_offset = max(0, math.floor((seconds_ago - 0.001) / segment_duration))
+    target_start_sq = current_sq - k_offset
     
-    target_start_sq = current_sq - segments_back
+    chunk_start_time_ago = (k_offset + 1) * segment_duration
+    trim_start = max(0.0, chunk_start_time_ago - seconds_ago)
+    
+    total_time_needed = trim_start + duration
+    num_segments = int(math.ceil(total_time_needed / segment_duration))
+    
     target_end_sq = target_start_sq + num_segments - 1
     
-    print(f"[live_cutter] target_start_sq: {target_start_sq}, target_end_sq: {target_end_sq} (num segments: {num_segments})")
+    print(f"[live_cutter] Extracted segment duration: {segment_duration}s")
+    print(f"[live_cutter] Trim offset: {trim_start:.3f}s, target_start_sq: {target_start_sq}, num_segments: {num_segments}")
     
     # 3. Download segments in parallel
     if progress_callback:
@@ -174,6 +190,8 @@ def extract_livestream_clip(youtube_url: str, seconds_ago: float, duration: floa
             "-f", "concat",
             "-safe", "0",
             "-i", str(concat_list),
+            "-ss", f"{trim_start:.3f}",
+            "-t", f"{duration:.3f}",
             "-c:v", "libx264",
             "-preset", "superfast",
             "-c:a", "aac",
