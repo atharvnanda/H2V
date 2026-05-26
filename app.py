@@ -13,9 +13,12 @@ inside a background thread.
 from __future__ import annotations
 
 import importlib
+import json
+import re
 import shutil
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -37,8 +40,10 @@ app.add_middleware(
 # Directories
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 OUTPUT_DIR = Path(__file__).parent / "output"
+CLIPS_DIR  = Path(__file__).parent / "output" / "clips"
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
+CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── In-memory job store ───────────────────────────────────────────────────────
 # { job_id: { "state": "processing"|"done"|"error", "detail": str, "output": Path|None } }
@@ -47,10 +52,15 @@ live_cut_jobs: dict[str, dict] = {}
 
 
 # ── Request DTOs ──────────────────────────────────────────────────────────────
+class ResolveStreamRequest(BaseModel):
+    url: str
+
+
 class LiveCutRequest(BaseModel):
     url: str
     seconds_ago: float
     duration: float
+    title: str = "clip"
 
 
 class ProcessVerticalRequest(BaseModel):
@@ -71,7 +81,16 @@ def _run_pipeline(job_id: str, input_path: Path, output_path: Path) -> None:
         jobs[job_id]["detail"] = "Analysing video structure..."
         segments = segment_video(str(input_path))
 
-        template_segs = [s for s in segments if s["type"] == "TEMPLATE" and s.get("template")]
+        # Process all segments; fallback to 1panel_fullscreen for transitions
+        all_segs = []
+        for s in segments:
+            if s["type"] == "TEMPLATE" and s.get("template"):
+                all_segs.append(s)
+            else:
+                # Transition or unrecognized → use fullscreen fallback
+                all_segs.append({**s, "template": "1panel_fullscreen"})
+
+        template_segs = all_segs
         if not template_segs:
             raise RuntimeError("No classifiable template segments found.")
 
@@ -131,6 +150,16 @@ def _run_pipeline(job_id: str, input_path: Path, output_path: Path) -> None:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@app.post("/resolve-stream")
+async def resolve_stream(req: ResolveStreamRequest):
+    """Validate a YouTube URL and extract the video ID."""
+    pattern = r'(?:youtube\.com/(?:watch\?v=|embed/)|youtu\.be/)([\w-]{11})'
+    match = re.search(pattern, req.url)
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+    return JSONResponse({"youtube_video_id": match.group(1), "status": "ok"})
+
 
 @app.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
@@ -205,7 +234,7 @@ async def download_video(job_id: str):
 
 
 # ── Live Cut Background Worker ────────────────────────────────────────────────
-def _run_live_cut(job_id: str, url: str, seconds_ago: float, duration: float, output_path: Path) -> None:
+def _run_live_cut(job_id: str, url: str, seconds_ago: float, duration: float, output_path: Path, title: str = "clip") -> None:
     """Download livestream segments concurrently and concatenate them."""
     try:
         print(f"\n[h2v] [{job_id}] Starting live cut extraction for: {url}")
@@ -222,9 +251,25 @@ def _run_live_cut(job_id: str, url: str, seconds_ago: float, duration: float, ou
             progress_callback=update_progress,
         )
         
+        # Save clip to clips directory with metadata
+        clip_path = CLIPS_DIR / f"{job_id}.mp4"
+        shutil.copy2(str(output_path), str(clip_path))
+        
+        meta = {
+            "id": job_id,
+            "title": title,
+            "created_at": datetime.now().isoformat(),
+            "duration": duration,
+            "source_url": url,
+            "filename": f"{job_id}.mp4",
+        }
+        meta_path = CLIPS_DIR / f"{job_id}.json"
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        
         live_cut_jobs[job_id]["state"] = "done"
         live_cut_jobs[job_id]["detail"] = "Extraction complete"
         live_cut_jobs[job_id]["output"] = output_path
+        live_cut_jobs[job_id]["clip_id"] = job_id
         print(f"[h2v] [{job_id}] OK Live cut done -> {output_path.name}")
     except Exception as exc:
         live_cut_jobs[job_id]["state"] = "error"
@@ -248,7 +293,7 @@ async def start_live_cut(req: LiveCutRequest):
     
     thread = threading.Thread(
         target=_run_live_cut,
-        args=(job_id, req.url, req.seconds_ago, req.duration, output_path),
+        args=(job_id, req.url, req.seconds_ago, req.duration, output_path, req.title),
         daemon=True,
     )
     thread.start()
@@ -269,6 +314,8 @@ async def get_live_cut_status(job_id: str):
     }
     if job["state"] == "done":
         payload["output_url"] = f"/live-cut/download/{job_id}"
+        if "clip_id" in job:
+            payload["clip_id"] = job["clip_id"]
         
     return JSONResponse(payload)
 
@@ -316,14 +363,24 @@ async def start_vertical_conversion(req: ProcessVerticalRequest):
         trimmed_path = UPLOAD_DIR / f"trimmed_{job_id}.mp4"
         trim_start = req.trim_start or 0.0
         
-        # Build ffmpeg command to trim
+        # Build ffmpeg command to trim (frame-accurate re-encoding)
         cmd = ["ffmpeg", "-y"]
         if req.trim_start is not None:
             cmd.extend(["-ss", str(trim_start)])
-        if req.trim_end is not None:
-            cmd.extend(["-to", str(req.trim_end)])
             
-        cmd.extend(["-i", str(input_path), "-c", "copy", str(trimmed_path)])
+        if req.trim_start is not None and req.trim_end is not None:
+            cmd.extend(["-t", str(req.trim_end - trim_start)])
+        elif req.trim_end is not None:
+            cmd.extend(["-t", str(req.trim_end)])
+            
+        cmd.extend([
+            "-i", str(input_path),
+            "-c:v", "libx264",
+            "-preset", "superfast",
+            "-crf", "20",
+            "-c:a", "aac",
+            str(trimmed_path)
+        ])
         
         try:
             from core import ffmpeg_runner
@@ -348,6 +405,81 @@ async def start_vertical_conversion(req: ProcessVerticalRequest):
     thread.start()
     
     return JSONResponse({"job_id": job_id})
+
+
+# ── Clip Management Endpoints ─────────────────────────────────────────────────
+
+@app.get("/clips")
+async def list_clips():
+    """List all saved clips with metadata."""
+    clips = []
+    for meta_file in sorted(CLIPS_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True):
+        try:
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            mp4_path = CLIPS_DIR / meta["filename"]
+            if mp4_path.exists():
+                meta["size_bytes"] = mp4_path.stat().st_size
+                # Check if vertical version exists
+                vert_path = OUTPUT_DIR / f"{meta['id']}_vertical.mp4"
+                meta["has_vertical"] = vert_path.exists()
+                if vert_path.exists():
+                    meta["vertical_url"] = f"/download/{meta['id']}"
+                clips.append(meta)
+        except Exception:
+            continue
+    return JSONResponse(clips)
+
+
+@app.delete("/clips/{clip_id}")
+async def delete_clip(clip_id: str):
+    """Delete a clip and its associated files."""
+    meta_path = CLIPS_DIR / f"{clip_id}.json"
+    mp4_path = CLIPS_DIR / f"{clip_id}.mp4"
+    vert_path = OUTPUT_DIR / f"{clip_id}_vertical.mp4"
+
+    if not meta_path.exists() and not mp4_path.exists():
+        raise HTTPException(status_code=404, detail="Clip not found.")
+
+    for p in [meta_path, mp4_path, vert_path]:
+        if p.exists():
+            p.unlink()
+
+    return JSONResponse({"status": "deleted"})
+
+
+@app.post("/clips/{clip_id}/transform")
+async def transform_clip(clip_id: str):
+    """Trigger the H2V pipeline on a saved clip."""
+    clip_path = CLIPS_DIR / f"{clip_id}.mp4"
+    if not clip_path.exists():
+        raise HTTPException(status_code=404, detail="Clip not found.")
+
+    job_id = clip_id  # Reuse clip_id as job_id so we can track it
+    output_path = OUTPUT_DIR / f"{clip_id}_vertical.mp4"
+
+    jobs[job_id] = {
+        "state": "processing",
+        "detail": "Queued - starting H2V pipeline...",
+        "output": None,
+    }
+
+    thread = threading.Thread(
+        target=_run_pipeline,
+        args=(job_id, clip_path, output_path),
+        daemon=True,
+    )
+    thread.start()
+
+    return JSONResponse({"job_id": job_id})
+
+
+@app.get("/clips/{clip_id}/serve")
+async def serve_clip(clip_id: str):
+    """Serve a saved clip video file."""
+    clip_path = CLIPS_DIR / f"{clip_id}.mp4"
+    if not clip_path.exists():
+        raise HTTPException(status_code=404, detail="Clip not found.")
+    return FileResponse(path=str(clip_path), media_type="video/mp4", filename=clip_path.name)
 
 
 # ── Serve the frontend ───────────────────────────────────────────────────────

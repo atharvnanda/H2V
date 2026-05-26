@@ -14,823 +14,987 @@
 
     :root {
       --bg:        #0b0d11;
-      --surface:   rgba(255 255 255 / 0.04);
-      --glass:     rgba(255 255 255 / 0.06);
-      --border:    rgba(255 255 255 / 0.08);
+      --bg-secondary: #12121a;
+      --timeline-bg: #1a1a2e;
+      --surface:   rgba(255, 255, 255, 0.04);
+      --glass:     rgba(255, 255, 255, 0.06);
+      --border:    rgba(255, 255, 255, 0.08);
+      --border-bright: rgba(255, 255, 255, 0.15);
       --text:      #e4e6eb;
       --text-dim:  #8b8fa3;
       --accent:    #6c5ce7;
       --accent-2:  #a29bfe;
       --danger:    #ff6b6b;
       --success:   #51cf66;
+      --warning:   #f39c12;
       --radius:    14px;
       --font:      'Inter', system-ui, -apple-system, sans-serif;
+      --marker-in: #00b894;
+      --marker-out: #e74c3c;
+      --selection: rgba(108, 92, 231, 0.25);
+      --navbar-h:  48px;
     }
 
-    html { font-size: 16px; }
-
+    html { font-size: 16px; height: 100%; }
+    
     body {
       font-family: var(--font);
       background: var(--bg);
       color: var(--text);
-      min-height: 100dvh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      height: 100vh;
       overflow: hidden;
       position: relative;
     }
 
     /* ── Ambient background glow ──────────────────────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
+    .ambient-bg {
+      position: fixed; inset: 0;
       background:
         radial-gradient(ellipse 600px 400px at 25% 20%, rgba(108,92,231,.12), transparent),
         radial-gradient(ellipse 500px 350px at 75% 75%, rgba(162,155,254,.08), transparent);
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
     }
 
-    /* ── Card container ───────────────────────────────────────────────────── */
-    .card {
-      position: relative;
-      z-index: 1;
-      width: min(480px, 92vw);
-      background: var(--glass);
-      backdrop-filter: blur(32px) saturate(1.2);
-      -webkit-backdrop-filter: blur(32px) saturate(1.2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 2.5rem 2rem;
-      text-align: center;
-      box-shadow: 0 8px 40px rgba(0,0,0,.35);
-      transition: transform .35s ease, box-shadow .35s ease;
-    }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 12px 48px rgba(0,0,0,.45); }
-
-    /* ── Logo / Title ─────────────────────────────────────────────────────── */
-    .logo {
-      font-size: 1.1rem;
-      font-weight: 600;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--accent-2);
-      margin-bottom: .35rem;
-    }
-    .subtitle {
-      font-size: .82rem;
-      color: var(--text-dim);
-      margin-bottom: 2rem;
-    }
-
-    /* ── View states ──────────────────────────────────────────────────────── */
-    .view { display: none; flex-direction: column; align-items: center; gap: 1.2rem; }
-    .view.active { display: flex; animation: fadeIn .4s ease; }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* ── Upload drop zone ─────────────────────────────────────────────────── */
-    .dropzone {
-      width: 100%;
-      padding: 2.4rem 1.5rem;
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      cursor: pointer;
-      transition: border-color .25s, background .25s;
-      position: relative;
-      overflow: hidden;
-    }
-    .dropzone:hover,
-    .dropzone.drag-over {
-      border-color: var(--accent);
-      background: rgba(108,92,231,.06);
-    }
-    .dropzone-icon {
-      font-size: 2.2rem;
-      margin-bottom: .6rem;
-      opacity: .7;
-    }
-    .dropzone-label {
-      font-size: .92rem;
-      color: var(--text-dim);
-      line-height: 1.5;
-    }
-    .dropzone-label strong {
-      color: var(--accent-2);
-      font-weight: 600;
-    }
-    .file-name {
-      margin-top: .5rem;
-      font-size: .82rem;
-      color: var(--accent-2);
-      word-break: break-all;
-      min-height: 1.2em;
-    }
-    input[type="file"] { display: none; }
-
-    /* ── Button ───────────────────────────────────────────────────────────── */
+    /* ── Shared Elements ──────────────────────────────────────────────────── */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: .5rem;
-      padding: .72rem 2rem;
-      font-family: var(--font);
-      font-size: .88rem;
-      font-weight: 600;
-      letter-spacing: .04em;
-      color: #fff;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: opacity .2s, transform .15s;
-      box-shadow: 0 4px 16px rgba(108,92,231,.25);
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: .5rem; padding: .6rem 1.2rem;
+      font-family: var(--font); font-size: .88rem; font-weight: 600;
+      color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border: none; border-radius: 8px;
+      cursor: pointer; transition: opacity .2s, transform .15s;
     }
-    .btn:hover { opacity: .9; transform: translateY(-1px); }
+    .btn:hover { opacity: .9; }
     .btn:active { transform: scale(.97); }
     .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
-
+    
     .btn-outline {
-      background: transparent;
-      border: 1.5px solid var(--accent);
-      color: var(--accent-2);
-      box-shadow: none;
+      background: transparent; border: 1px solid var(--accent); color: var(--accent-2);
     }
     .btn-outline:hover { background: rgba(108,92,231,.1); }
+    
+    .btn-sm { padding: .4rem .8rem; font-size: .8rem; }
+    .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: rgba(255,107,107,.1); }
 
-    /* ── Spinner ──────────────────────────────────────────────────────────── */
-    .spinner-wrap { display: flex; flex-direction: column; align-items: center; gap: 1.2rem; }
+    input[type="text"], input[type="number"] {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+      color: var(--text); padding: .6rem 1rem; border-radius: 8px;
+      font-family: var(--font); font-size: .9rem; width: 100%;
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Navbar ───────────────────────────────────────────────────────────── */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--navbar-h);
+      background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.5rem; z-index: 100;
+    }
+    .navbar-logo { font-weight: 700; color: var(--text); letter-spacing: 1px; font-size: 1.1rem; }
+    .navbar-logo span { color: var(--accent-2); }
+    
+    .navbar-modes { display: flex; gap: .5rem; }
+    .mode-btn {
+      background: transparent; border: none; color: var(--text-dim);
+      padding: .4rem 1rem; border-radius: 6px; cursor: pointer;
+      font-size: .9rem; font-weight: 500; transition: all .2s;
+    }
+    .mode-btn:hover { color: var(--text); background: var(--surface); }
+    .mode-btn.active { background: var(--glass); color: var(--text); border: 1px solid var(--border); }
+
+    /* ── Mode Containers ──────────────────────────────────────────────────── */
+    .mode-container {
+      position: absolute; top: var(--navbar-h); left: 0; right: 0; bottom: 0;
+      display: none; z-index: 10;
+    }
+    .mode-container.active { display: flex; }
+
+    /* ── Upload Mode ──────────────────────────────────────────────────────── */
+    #mode-upload { justify-content: center; align-items: center; overflow-y: auto; padding: 2rem; }
+    .card {
+      position: relative; width: min(480px, 92vw);
+      background: var(--glass); backdrop-filter: blur(32px) saturate(1.2);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 2.5rem 2rem; text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.35);
+    }
+    .subtitle { font-size: .82rem; color: var(--text-dim); margin-bottom: 2rem; }
+    
+    .dropzone {
+      width: 100%; padding: 2.4rem 1.5rem; border: 2px dashed var(--border);
+      border-radius: var(--radius); cursor: pointer; transition: all .2s; margin-bottom: 1.5rem;
+    }
+    .dropzone:hover, .dropzone.drag-over { border-color: var(--accent); background: rgba(108,92,231,.06); }
+    .dropzone-icon { font-size: 2.2rem; margin-bottom: .6rem; opacity: .7; }
+    .dropzone-label { font-size: .92rem; color: var(--text-dim); }
+    .dropzone-label strong { color: var(--accent-2); font-weight: 600; }
+    .file-name { margin-top: .5rem; font-size: .82rem; color: var(--accent-2); word-break: break-all; min-height: 1.2em; }
+    input[type="file"] { display: none; }
+
+    /* ── Shared Overlay Views (Loading, Error, Done) ──────────────────────── */
+    .overlay-view {
+      position: absolute; inset: 0; background: var(--bg); z-index: 200;
+      display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; text-align: center;
+    }
+    .overlay-view.active { display: flex; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     .spinner {
-      width: 52px; height: 52px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent-2);
-      border-radius: 50%;
+      width: 52px; height: 52px; border: 3px solid var(--border);
+      border-top-color: var(--accent-2); border-radius: 50%;
       animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .status-text { font-size: .92rem; color: var(--text-dim); }
 
-    .status-text {
-      font-size: .92rem;
-      color: var(--text-dim);
-      transition: color .3s;
+    .done-icon { font-size: 2.5rem; color: var(--success); }
+    .video-preview { width: 100%; max-width: 320px; max-height: 420px; border-radius: 10px; background: #000; margin-bottom: 1rem; }
+    .error-icon { font-size: 2.5rem; color: var(--danger); }
+    .btn-group { display: flex; gap: .75rem; justify-content: center; }
+
+    /* ── Live Editor Mode ─────────────────────────────────────────────────── */
+    #mode-live { flex-direction: row; }
+    .editor-main { flex: 1; display: flex; flex-direction: column; position: relative; overflow-y: auto; overflow-x: hidden; }
+    .editor-sidebar { 
+      width: 320px; background: rgba(0,0,0,0.4); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
     }
 
-    /* ── Done view ────────────────────────────────────────────────────────── */
-    .done-icon {
-      font-size: 2.5rem;
-      color: var(--success);
-      animation: popIn .4s ease;
-    }
-    @keyframes popIn { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    /* URL Bar */
+    .url-bar { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; gap: .5rem; align-items: center; }
+    .url-bar input { flex: 1; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); margin-right: 6px; display: inline-block; }
+    .status-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-line { font-size: .8rem; color: var(--text-dim); padding: 0 1.5rem .5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
 
-    .video-preview {
-      width: 100%;
-      max-height: 420px;
-      border-radius: 10px;
-      background: #000;
-      margin-top: .4rem;
-    }
+    /* Player Container */
+    .player-container { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; }
+    #yt-player { width: 100%; height: 100%; pointer-events: auto; }
 
-    .btn-group { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
-
-    /* ── Tabs style ───────────────────────────────────────────────────────── */
-    .tabs {
-      display: flex;
-      background: rgba(255 255 255 / 0.03);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 4px;
-      margin-bottom: 1.5rem;
-      width: 100%;
+    /* Timeline Section */
+    .timeline-section { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; flex-shrink: 0; }
+    
+    #timeline-container { position: relative; user-select: none; }
+    
+    #timeline-labels {
+      display: flex; position: relative; height: 20px; color: var(--text-dim); font-size: .75rem; margin-bottom: 4px;
     }
-    .tab-btn {
-      flex: 1;
-      padding: 10px 12px;
-      background: transparent;
-      border: none;
-      border-radius: 8px;
-      color: var(--text-dim);
-      font-family: var(--font);
-      font-size: 0.88rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: color 0.2s, background 0.2s;
-    }
-    .tab-btn.active {
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
+    .time-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+    
+    #timeline-track {
+      position: relative; height: 48px; background: var(--timeline-bg);
+      border-radius: 8px; overflow: hidden; cursor: crosshair; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
     }
     
-    .mode-content {
-      display: none;
-      width: 100%;
-      flex-direction: column;
-      gap: 1.2rem;
+    #timeline-buffered { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(255,255,255,0.08); width: 100%; pointer-events: none; }
+    #timeline-selection { position: absolute; top: 0; bottom: 0; background: var(--selection); pointer-events: none; border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); display: none; }
+    
+    #timeline-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; transform: translateX(-50%); box-shadow: 0 0 4px rgba(255,255,255,0.8); z-index: 5; }
+    
+    .timeline-marker {
+      position: absolute; top: 0; bottom: 0; width: 12px; transform: translateX(-50%);
+      cursor: ew-resize; z-index: 10; display: none;
     }
-    .mode-content.active {
-      display: flex;
+    .timeline-marker::after {
+      content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 4px; border-radius: 2px;
     }
+    .timeline-marker.marker-in::after { background: var(--marker-in); }
+    .timeline-marker.marker-out::after { background: var(--marker-out); }
 
-    /* ── Input forms style ─────────────────────────────────────────────────── */
-    .input-row {
-      display: flex;
-      gap: 0.75rem;
-      width: 100%;
-    }
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.45rem;
-      width: 100%;
-      text-align: left;
-    }
-    .input-group label {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .input-group input {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 0.88rem;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .input-group input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.25);
-    }
+    /* Controls */
+    .timeline-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    .marker-btns { display: flex; gap: .5rem; }
+    .time-displays { display: flex; gap: 1.5rem; font-size: .85rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .time-displays span { color: var(--text); font-weight: 500; }
+    
+    .clip-actions { display: flex; gap: .5rem; align-items: center; background: var(--surface); padding: .75rem 1rem; border-radius: 8px; border: 1px solid var(--border); }
+    .clip-actions input { width: 200px; }
 
-    /* ── Double range trimmer slider style ────────────────────────────────── */
-    .trimmer-container {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.15);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.25rem 1rem;
-      margin: 0.25rem 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+    /* Sidebar Gallery */
+    .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .sidebar-header h3 { font-size: .95rem; font-weight: 600; }
+    .badge { background: var(--accent); color: #fff; font-size: .7rem; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+    
+    .clips-list { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+    .clip-card { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: .75rem; transition: border-color .2s; }
+    .clip-card:hover { border-color: var(--border-bright); }
+    .clip-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .clip-title { font-size: .9rem; font-weight: 600; word-break: break-all; }
+    .clip-meta { font-size: .75rem; color: var(--text-dim); display: flex; flex-direction: column; align-items: flex-end; }
+    .clip-actions-row { display: flex; gap: .5rem; }
+    
+    .clip-progress { font-size: .8rem; color: var(--accent-2); display: flex; align-items: center; gap: .5rem; }
+    .mini-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent-2); border-radius: 50%; animation: spin 1s linear infinite; }
+
+    /* Preview Overlay */
+    .preview-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0; background: rgba(11, 13, 17, 0.95);
+      backdrop-filter: blur(10px); border-top: 1px solid var(--border);
+      padding: 1.5rem; display: none; flex-direction: column; gap: 1rem; z-index: 50;
+      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .range-slider {
-      position: relative;
-      width: 100%;
-      height: 6px;
-      margin: 10px 0;
+    .preview-overlay.active { display: flex; transform: translateY(0); }
+    .preview-header { display: flex; justify-content: space-between; align-items: center; }
+    .preview-header h3 { font-size: 1rem; }
+    .close-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.5rem; line-height: 1; }
+    .close-btn:hover { color: var(--text); }
+    
+    #preview-video { width: 100%; max-height: 40vh; background: #000; border-radius: 8px; }
+
+    /* Play Modal */
+    #play-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 300;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
     }
-    .slider-track {
-      position: absolute;
-      height: 100%;
-      background: rgba(255 255 255 / 0.1);
-      border-radius: 3px;
-      width: 100%;
-      top: 0;
-      z-index: 1;
-    }
+    #play-modal.active { display: flex; }
+    #modal-video { max-width: 90vw; max-height: 80vh; outline: none; }
+    .modal-close { position: absolute; top: 1.5rem; right: 2rem; background: transparent; border: none; color: #fff; font-size: 2.5rem; cursor: pointer; }
+
+    /* Custom range slider for trimming (reused logic) */
+    .range-slider { position: relative; width: 100%; height: 24px; display: flex; align-items: center; }
+    .slider-track { position: absolute; width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; pointer-events: none; }
     .range-slider input[type="range"] {
-      position: absolute;
-      width: 100%;
-      height: 6px;
-      background: none;
-      pointer-events: none;
-      -webkit-appearance: none;
-      appearance: none;
-      top: 0;
-      left: 0;
-      z-index: 2;
+      position: absolute; width: 100%; appearance: none; background: transparent; pointer-events: none;
     }
     .range-slider input[type="range"]::-webkit-slider-thumb {
-      height: 18px;
-      width: 18px;
-      border-radius: 50%;
-      background: var(--accent-2);
-      border: 2px solid var(--accent);
-      cursor: pointer;
-      pointer-events: auto;
-      -webkit-appearance: none;
-      box-shadow: 0 0 4px rgba(0,0,0,0.5);
-      transition: transform 0.1s;
-    }
-    .range-slider input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
-    }
-    .range-slider input[type="range"]::-moz-range-thumb {
-      height: 18px;
-      width: 18px;
-      border-radius: 50%;
-      background: var(--accent-2);
-      border: 2px solid var(--accent);
-      cursor: pointer;
-      pointer-events: auto;
-      box-shadow: 0 0 4px rgba(0,0,0,0.5);
-      transition: transform 0.1s;
-    }
-    .range-slider input[type="range"]::-moz-range-thumb:hover {
-      transform: scale(1.2);
-    }
-    .trim-legend {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      color: var(--text-dim);
-    }
-    .trim-legend span {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    /* ── Error state ──────────────────────────────────────────────────────── */
-    .error-text { color: var(--danger); font-size: .88rem; line-height: 1.5; }
-
-    /* ── Responsive ───────────────────────────────────────────────────────── */
-    @media (max-width: 500px) {
-      .card { padding: 2rem 1.25rem; }
-      .dropzone { padding: 1.8rem 1rem; }
+      appearance: none; pointer-events: auto; width: 16px; height: 16px; border-radius: 50%; background: #fff; cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">H2V</div>
-  <div class="subtitle">Horizontal → Vertical Video Converter</div>
+  <div class="ambient-bg"></div>
 
-  <!-- ────── Upload View ────── -->
-  <div id="view-upload" class="view active">
-    <!-- Tabs toggler -->
-    <div class="tabs">
-      <button class="tab-btn active" id="tab-upload">Upload File</button>
-      <button class="tab-btn" id="tab-live">Livestream Cut</button>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-logo">H2V <span>Pipeline</span></div>
+    <div class="navbar-modes">
+      <button id="nav-upload" class="mode-btn active">📤 Upload</button>
+      <button id="nav-live" class="mode-btn">✂ Stream Editor</button>
     </div>
+  </nav>
 
-    <!-- Upload Mode -->
-    <div id="mode-upload" class="mode-content active">
+  <!-- ================= UPLOAD MODE ================= -->
+  <div id="mode-upload" class="mode-container active">
+    <div class="card">
+      <h2 class="logo">Video Converter</h2>
+      <p class="subtitle">Convert horizontal video to vertical</p>
+      
       <div class="dropzone" id="dropzone">
-        <div class="dropzone-icon">📁</div>
-        <div class="dropzone-label">
-          Drag & drop your video here<br/>or <strong>click to browse</strong>
-        </div>
-        <input type="file" id="file-input" accept="video/*" />
+        <div class="dropzone-icon">📥</div>
+        <div class="dropzone-label">Drag & drop video here or <strong>browse</strong></div>
+        <div class="file-name" id="file-name"></div>
       </div>
-      <div class="file-name" id="file-name"></div>
-      <button class="btn" id="btn-upload" disabled style="width: 100%;">
-        <span>⬆</span> Convert Video
-      </button>
-    </div>
-
-    <!-- Livestream Cut Mode -->
-    <div id="mode-live" class="mode-content">
-      <div class="input-group">
-        <label for="live-url">YouTube Livestream URL</label>
-        <input type="text" id="live-url" placeholder="https://www.youtube.com/watch?v=..." />
-      </div>
-      <div class="input-row">
-        <div class="input-group">
-          <label for="live-time-ago">Time Ago (e.g. 5m, 120s)</label>
-          <input type="text" id="live-time-ago" placeholder="e.g. 2m" />
-        </div>
-        <div class="input-group">
-          <label for="live-duration">Duration (seconds)</label>
-          <input type="number" id="live-duration" placeholder="e.g. 30" min="5" value="30" />
-        </div>
-      </div>
-      <button class="btn" id="btn-live-cut" style="width: 100%; margin-top: 0.4rem;">
-        <span>✂</span> Extract Clip
-      </button>
+      <input type="file" id="file-input" accept="video/mp4,video/x-m4v,video/*" />
+      
+      <button class="btn" id="btn-upload" disabled>Start Conversion</button>
     </div>
   </div>
 
-  <!-- ────── Review View ────── -->
-  <div id="view-review" class="view">
-    <div class="logo" style="font-size: 0.95rem; margin-bottom: 0;">Review Extracted Clip</div>
-    <div class="subtitle" style="font-size: 0.78rem; margin-bottom: 0.5rem;">Trim the clip before vertical conversion</div>
+  <!-- ================= LIVE EDITOR MODE ================= -->
+  <div id="mode-live" class="mode-container">
     
-    <video id="review-video" class="video-preview" controls playsinline style="max-height: 220px;"></video>
-    
-    <div class="trimmer-container">
-      <div class="range-slider">
-        <div class="slider-track" id="slider-track"></div>
-        <input type="range" id="trim-start" min="0" max="100" step="0.1" value="0">
-        <input type="range" id="trim-end" min="0" max="100" step="0.1" value="100">
+    <!-- Main Left Column -->
+    <div class="editor-main">
+      <div class="url-bar">
+        <input type="text" id="live-url" placeholder="Paste YouTube Live URL here (e.g. https://youtube.com/watch?v=...)" />
+        <button id="btn-load-stream" class="btn">Load</button>
       </div>
-      <div class="trim-legend">
-        <div>Start: <span id="trim-start-label">0.0</span>s</div>
-        <div>End: <span id="trim-end-label">30.0</span>s</div>
-        <div>Duration: <span id="trim-duration-label">30.0</span>s</div>
+      <div class="status-line">
+        <div id="stream-status-dot" class="status-dot"></div>
+        <span id="stream-status-text">Enter a YouTube URL to begin</span>
+      </div>
+
+      <div class="player-container">
+        <div id="yt-player"></div>
+      </div>
+
+      <div class="timeline-section">
+        
+        <!-- Timeline Component -->
+        <div id="timeline-container">
+          <div id="timeline-labels"></div>
+          <div id="timeline-track">
+            <div id="timeline-buffered"></div>
+            <div id="timeline-selection"></div>
+            <div id="timeline-playhead"></div>
+            <div id="marker-in" class="timeline-marker marker-in"></div>
+            <div id="marker-out" class="timeline-marker marker-out"></div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="timeline-controls">
+          <div class="marker-btns">
+            <button id="btn-set-in" class="btn btn-outline btn-sm">⏮ Set In</button>
+            <button id="btn-set-out" class="btn btn-outline btn-sm">Set Out ⏭</button>
+          </div>
+          <div class="time-displays">
+            <div>IN: <span id="disp-in">--:--:--</span></div>
+            <div>OUT: <span id="disp-out">--:--:--</span></div>
+            <div>DUR: <span id="disp-dur">0.0s</span></div>
+          </div>
+        </div>
+
+        <div class="clip-actions">
+          <input type="text" id="clip-title" value="clip 01" placeholder="Clip Title" />
+          <button id="btn-preview" class="btn btn-outline" disabled>👁 Preview</button>
+          <button id="btn-save-clip" class="btn" disabled>💾 Save Clip</button>
+        </div>
+      </div>
+
+      <!-- Preview Overlay -->
+      <div id="preview-overlay" class="preview-overlay">
+        <div class="preview-header">
+          <h3>Preview: <span id="preview-title-disp"></span></h3>
+          <button id="btn-close-preview" class="close-btn">✕</button>
+        </div>
+        <video id="preview-video" controls></video>
+        
+        <div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 0.5rem;">Trim Range</div>
+        <div class="range-slider">
+          <div class="slider-track" id="slider-track"></div>
+          <input type="range" id="trim-start" min="0" max="100" step="0.1" value="0">
+          <input type="range" id="trim-end" min="0" max="100" step="0.1" value="100">
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+          <div class="time-displays">
+            <div>Start: <span id="trim-start-label">0.0</span></div>
+            <div>End: <span id="trim-end-label">0.0</span></div>
+            <div>Duration: <span id="trim-duration-label">0.0</span>s</div>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <button id="btn-cancel-trim" class="btn btn-outline btn-sm">Cancel</button>
+            <button id="btn-save-trim" class="btn btn-sm">Save with Trim (H2V)</button>
+          </div>
+        </div>
+      </div>
+    </div> <!-- /editor-main -->
+
+    <!-- Sidebar Gallery -->
+    <div class="editor-sidebar">
+      <div class="sidebar-header">
+        <h3>Saved Clips <span id="clip-count" class="badge">0</span></h3>
+        <button id="btn-refresh-clips" class="btn btn-outline btn-sm">↻</button>
+      </div>
+      <div class="clips-list" id="clips-list">
+        <!-- populated via JS -->
       </div>
     </div>
-    
-    <div class="btn-group" style="width: 100%;">
-      <button class="btn btn-outline" id="btn-review-back" style="flex: 1;">
-        <span>←</span> Back
-      </button>
-      <button class="btn" id="btn-review-confirm" style="flex: 2;">
-        <span>✓</span> Confirm & Convert
-      </button>
-    </div>
+
+  </div> <!-- /mode-live -->
+
+  <!-- ================= OVERLAYS ================= -->
+  
+  <div id="view-loading" class="overlay-view">
+    <div class="spinner"></div>
+    <div class="status-text" id="status-txt">Processing...</div>
   </div>
 
-  <!-- ────── Loading View ────── -->
-  <div id="view-loading" class="view">
-    <div class="spinner-wrap">
-      <div class="spinner"></div>
-      <div class="status-text" id="status-text">Queued — starting pipeline…</div>
-    </div>
-  </div>
-
-  <!-- ────── Done View ────── -->
-  <div id="view-done" class="view">
+  <div id="view-done" class="overlay-view">
     <div class="done-icon">✓</div>
-    <video id="video-preview" class="video-preview" controls playsinline></video>
+    <video id="done-video" class="video-preview" autoplay loop muted playsinline></video>
     <div class="btn-group">
-      <a id="btn-download" class="btn" download>
-        <span>⬇</span> Download
-      </a>
-      <button class="btn btn-outline" id="btn-new">
-        <span>↻</span> Convert another
-      </button>
+      <a id="btn-download" class="btn" href="#" download>Download Vertical</a>
+      <button class="btn btn-outline" onclick="closeOverlays()">Done</button>
     </div>
   </div>
 
-  <!-- ────── Error View ────── -->
-  <div id="view-error" class="view">
-    <div class="done-icon" style="color: var(--danger);">✗</div>
-    <div class="error-text" id="error-text">Something went wrong.</div>
-    <button class="btn btn-outline" id="btn-retry">
-      <span>↻</span> Try again
-    </button>
+  <div id="view-error" class="overlay-view">
+    <div class="error-icon">⚠</div>
+    <div class="status-text" id="error-txt">An error occurred.</div>
+    <button class="btn btn-outline" onclick="closeOverlays()">Close</button>
   </div>
-</div>
 
-<script>
-(() => {
-  "use strict";
+  <div id="play-modal">
+    <button class="modal-close" onclick="closePlayModal()">✕</button>
+    <video id="modal-video" controls autoplay></video>
+  </div>
 
-  // ── Elements ─────────────────────────────────────────────────────────────
-  const views           = document.querySelectorAll('.view');
-  const dropzone        = document.getElementById('dropzone');
-  const fileInput       = document.getElementById('file-input');
-  const fileName        = document.getElementById('file-name');
-  const btnUpload       = document.getElementById('btn-upload');
-  const statusTxt       = document.getElementById('status-text');
-  const videoEl         = document.getElementById('video-preview');
-  const btnDL           = document.getElementById('btn-download');
-  const btnNew          = document.getElementById('btn-new');
-  const btnRetry        = document.getElementById('btn-retry');
-  const errorTxt        = document.getElementById('error-text');
-
-  // New Live Cut Tabs & Inputs
-  const tabUpload       = document.getElementById('tab-upload');
-  const tabLive         = document.getElementById('tab-live');
-  const modeUpload      = document.getElementById('mode-upload');
-  const modeLive        = document.getElementById('mode-live');
-  const liveUrlInput    = document.getElementById('live-url');
-  const liveTimeInput   = document.getElementById('live-time-ago');
-  const liveDurInput    = document.getElementById('live-duration');
-  const btnLiveCut      = document.getElementById('btn-live-cut');
-
-  // Review screen
-  const reviewVideo      = document.getElementById('review-video');
-  const sliderTrack      = document.getElementById('slider-track');
-  const trimStartInput   = document.getElementById('trim-start');
-  const trimEndInput     = document.getElementById('trim-end');
-  const trimStartLabel   = document.getElementById('trim-start-label');
-  const trimEndLabel     = document.getElementById('trim-end-label');
-  const trimDurationLabel= document.getElementById('trim-duration-label');
-  const btnReviewBack    = document.getElementById('btn-review-back');
-  const btnReviewConfirm = document.getElementById('btn-review-confirm');
-
-  let selectedFile       = null;
-  let pollTimer          = null;
-  let currentLiveCutId   = null;
-  let requestedDuration  = 30.0;
-
-  // ── View management ──────────────────────────────────────────────────────
-  function showView(id) {
-    views.forEach(v => v.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-  }
-
-  // ── Tabs selection ───────────────────────────────────────────────────────
-  tabUpload.addEventListener('click', () => {
-    tabUpload.classList.add('active');
-    tabLive.classList.remove('active');
-    modeUpload.classList.add('active');
-    modeLive.classList.remove('active');
-  });
-
-  tabLive.addEventListener('click', () => {
-    tabLive.classList.add('active');
-    tabUpload.classList.remove('active');
-    modeLive.classList.add('active');
-    modeUpload.classList.remove('active');
-  });
-
-  // ── Time Ago Parsing Helper ──────────────────────────────────────────────
-  function parseTimeAgo(str) {
-    str = str.trim().toLowerCase();
-    if (!str) return 0;
+  <!-- ================= SCRIPTS ================= -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    // ── Global State ───────────────────────────────────────────────────────
+    let currentMode = 'upload'; // 'upload' | 'live'
     
-    const match = str.match(/^(\d+(?:\.\d+)?)\s*([hms])?$/);
-    if (!match) {
-      const val = parseFloat(str);
-      return isNaN(val) ? 0 : val;
-    }
+    // Upload state
+    let selectedFile = null;
+    let pollTimer = null;
     
-    const num = parseFloat(match[1]);
-    const unit = match[2];
+    // Live state
+    let ytPlayer = null;
+    let syncInterval = null;
+    let streamStartEpoch = Date.now();
+    let clipCounter = 1;
+    let clipsPollTimer = null;
     
-    if (unit === 'h') return num * 3600;
-    if (unit === 'm') return num * 60;
-    if (unit === 's') return num;
-    return num;
-  }
-
-  // ── Double Range Slider Logic ────────────────────────────────────────────
-  function updateSliderTrack() {
-    const minVal = parseFloat(trimStartInput.value);
-    const maxVal = parseFloat(trimEndInput.value);
-    const maxLimit = parseFloat(trimStartInput.max) || 100;
+    // Timeline window: ±15 minutes (900 seconds)
+    const WINDOW_HALF = 900;
     
-    const percentStart = (minVal / maxLimit) * 100;
-    const percentEnd = (maxVal / maxLimit) * 100;
+    // Markers in absolute video time (seconds)
+    let markerInTime = null;
+    let markerOutTime = null;
     
-    sliderTrack.style.background = `linear-gradient(to right, 
-      rgba(255, 255, 255, 0.1) ${percentStart}%, 
-      var(--accent) ${percentStart}%, 
-      var(--accent) ${percentEnd}%, 
-      rgba(255, 255, 255, 0.1) ${percentEnd}%)`;
-  }
-
-  trimStartInput.addEventListener('input', () => {
-    let valStart = parseFloat(trimStartInput.value);
-    let valEnd = parseFloat(trimEndInput.value);
+    // DOM Elements
+    const navUpload = document.getElementById('nav-upload');
+    const navLive = document.getElementById('nav-live');
+    const modeUpload = document.getElementById('mode-upload');
+    const modeLive = document.getElementById('mode-live');
     
-    if (valStart >= valEnd - 0.5) {
-      trimStartInput.value = valEnd - 0.5;
-      valStart = valEnd - 0.5;
-    }
+    const overlays = ['view-loading', 'view-done', 'view-error'];
+    function closeOverlays() { overlays.forEach(id => document.getElementById(id).classList.remove('active')); }
+    function showOverlay(id) { closeOverlays(); document.getElementById(id).classList.add('active'); }
+
+    // ── Navbar Logic ───────────────────────────────────────────────────────
+    navUpload.addEventListener('click', () => {
+      navUpload.classList.add('active'); navLive.classList.remove('active');
+      modeUpload.classList.add('active'); modeLive.classList.remove('active');
+      currentMode = 'upload';
+    });
+    navLive.addEventListener('click', () => {
+      navLive.classList.add('active'); navUpload.classList.remove('active');
+      modeLive.classList.add('active'); modeUpload.classList.remove('active');
+      currentMode = 'live';
+      fetchClips();
+    });
+
+    // ── Upload Logic (Preserved) ───────────────────────────────────────────
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const btnUpload = document.getElementById('btn-upload');
     
-    trimStartLabel.textContent = valStart.toFixed(1);
-    trimDurationLabel.textContent = (valEnd - valStart).toFixed(1);
-    updateSliderTrack();
-    
-    reviewVideo.currentTime = valStart;
-  });
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) selectFile(fileInput.files[0]);
+    });
 
-  trimEndInput.addEventListener('input', () => {
-    let valStart = parseFloat(trimStartInput.value);
-    let valEnd = parseFloat(trimEndInput.value);
-    
-    if (valEnd <= valStart + 0.5) {
-      trimEndInput.value = valStart + 0.5;
-      valEnd = valStart + 0.5;
-    }
-    
-    trimEndLabel.textContent = valEnd.toFixed(1);
-    trimDurationLabel.textContent = (valEnd - valStart).toFixed(1);
-    updateSliderTrack();
-    
-    reviewVideo.currentTime = valEnd;
-  });
-
-  reviewVideo.addEventListener('loadedmetadata', () => {
-    const dur = reviewVideo.duration || requestedDuration;
-    trimStartInput.max = dur;
-    trimEndInput.max = dur;
-    trimStartInput.value = 0;
-    trimEndInput.value = dur;
-    trimStartLabel.textContent = "0.0";
-    trimEndLabel.textContent = dur.toFixed(1);
-    trimDurationLabel.textContent = dur.toFixed(1);
-    updateSliderTrack();
-  });
-
-  // ── Drag & drop ──────────────────────────────────────────────────────────
-  dropzone.addEventListener('click', () => fileInput.click());
-
-  dropzone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropzone.classList.add('drag-over');
-  });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
-  dropzone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropzone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
-  });
-
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) selectFile(fileInput.files[0]);
-  });
-
-  function selectFile(file) {
-    selectedFile = file;
-    fileName.textContent = file.name;
-    btnUpload.disabled = false;
-  }
-
-  // ── Upload Local File ────────────────────────────────────────────────────
-  btnUpload.addEventListener('click', async () => {
-    if (!selectedFile) return;
-    btnUpload.disabled = true;
-    showView('view-loading');
-    statusTxt.textContent = 'Uploading…';
-
-    try {
-      const form = new FormData();
-      form.append('file', selectedFile);
-
-      const res = await fetch('/upload', { method: 'POST', body: form });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-
-      const { job_id } = await res.json();
-      startPolling(job_id, '/status');
-    } catch (err) {
-      showError(err.message);
-    }
-  });
-
-  // ── Livestream Cut Request ────────────────────────────────────────────────
-  btnLiveCut.addEventListener('click', async () => {
-    const url = liveUrlInput.value.trim();
-    const timeAgoStr = liveTimeInput.value.trim();
-    const duration = parseFloat(liveDurInput.value);
-
-    if (!url) {
-      alert("Please enter a valid YouTube livestream URL.");
-      return;
-    }
-    if (!timeAgoStr) {
-      alert("Please specify how far back to cut from (e.g. 5m or 120s).");
-      return;
-    }
-    if (isNaN(duration) || duration < 5) {
-      alert("Please specify a duration of at least 5 seconds.");
-      return;
+    function selectFile(file) {
+      selectedFile = file; fileName.textContent = file.name; btnUpload.disabled = false;
     }
 
-    const secondsAgo = parseTimeAgo(timeAgoStr);
-    requestedDuration = duration;
+    btnUpload.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      btnUpload.disabled = true;
+      document.getElementById('status-txt').textContent = 'Uploading...';
+      showOverlay('view-loading');
 
-    showView('view-loading');
-    statusTxt.textContent = 'Initializing livestream clip extraction…';
-
-    try {
-      const res = await fetch('/live-cut', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, seconds_ago: secondsAgo, duration })
-      });
-
-      if (!res.ok) throw new Error(`Live cut request failed (${res.status})`);
-
-      const { job_id } = await res.json();
-      startPollingLiveCut(job_id);
-    } catch (err) {
-      showError(err.message);
-    }
-  });
-
-  // ── Polling live cut status ──────────────────────────────────────────────
-  function startPollingLiveCut(jobId) {
-    if (pollTimer) clearInterval(pollTimer);
-
-    pollTimer = setInterval(async () => {
       try {
-        const res = await fetch(`/live-cut/status/${jobId}`);
-        if (!res.ok) throw new Error(`Live cut status check failed (${res.status})`);
+        const form = new FormData();
+        form.append('file', selectedFile);
+        const res = await fetch('/upload', { method: 'POST', body: form });
+        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+        const { job_id } = await res.json();
+        startPolling(job_id, '/status');
+      } catch (err) {
+        document.getElementById('error-txt').textContent = err.message;
+        showOverlay('view-error');
+      }
+    });
 
+    function startPolling(jobId, endpoint) {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`${endpoint}/${jobId}`);
+          if (!res.ok) throw new Error(`Status check failed (${res.status})`);
+          const data = await res.json();
+          document.getElementById('status-txt').textContent = data.detail || 'Processing...';
+
+          if (data.state === 'done') {
+            clearInterval(pollTimer); pollTimer = null;
+            document.getElementById('done-video').src = data.output_url;
+            document.getElementById('btn-download').href = data.output_url;
+            showOverlay('view-done');
+          } else if (data.state === 'error') {
+            clearInterval(pollTimer); pollTimer = null;
+            document.getElementById('error-txt').textContent = data.detail;
+            showOverlay('view-error');
+          }
+        } catch (err) {
+          clearInterval(pollTimer); pollTimer = null;
+          document.getElementById('error-txt').textContent = err.message;
+          showOverlay('view-error');
+        }
+      }, 2500);
+    }
+
+    // ── Live Editor Logic ──────────────────────────────────────────────────
+    
+    // YouTube Player Initialization
+    function onYouTubeIframeAPIReady() {
+      // API loaded, waiting for user input
+    }
+
+    document.getElementById('btn-load-stream').addEventListener('click', async () => {
+      const url = document.getElementById('live-url').value.trim();
+      if (!url) return;
+      
+      const dot = document.getElementById('stream-status-dot');
+      const txt = document.getElementById('stream-status-text');
+      dot.className = 'status-dot'; txt.textContent = 'Connecting...';
+      
+      try {
+        const res = await fetch('/resolve-stream', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        if (!res.ok) throw new Error('Invalid YouTube URL');
         const data = await res.json();
-        statusTxt.textContent = data.detail || 'Extracting livestream clip…';
+        
+        loadPlayer(data.youtube_video_id);
+        dot.classList.add('connected');
+        txt.textContent = '● Connected';
+      } catch (e) {
+        txt.textContent = e.message;
+      }
+    });
 
-        if (data.state === 'done') {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          currentLiveCutId = jobId;
+    function loadPlayer(videoId) {
+      if (ytPlayer) {
+        ytPlayer.loadVideoById(videoId);
+      } else {
+        ytPlayer = new YT.Player('yt-player', {
+          videoId: videoId,
+          playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0, modestbranding: 1 }
+        });
+      }
+      
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = setInterval(updateTimeline, 500);
+      
+      markerInTime = null; markerOutTime = null;
+      updateControls();
+    }
+
+    // Timeline Rendering
+    function formatClockTime(epochMs) {
+      const d = new Date(epochMs);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    
+    function formatDuration(sec) {
+      const s = Math.round(sec);
+      const m = Math.floor(s / 60);
+      return `${m}:${(s % 60).toString().padStart(2, '0')}`;
+    }
+
+    function updateTimeline() {
+      if (!ytPlayer || !ytPlayer.getCurrentTime || !ytPlayer.getDuration) return;
+      
+      const currentTime = ytPlayer.getCurrentTime() || 0;
+      const duration = ytPlayer.getDuration() || 0;
+      if (duration === 0) return;
+      
+      streamStartEpoch = Date.now() - (duration * 1000);
+      
+      // Window is ±15 min centered on current time
+      const windowStart = Math.max(0, currentTime - WINDOW_HALF);
+      const windowEnd = Math.min(duration, currentTime + WINDOW_HALF);
+      const windowDur = windowEnd - windowStart;
+      
+      const trackWidth = document.getElementById('timeline-track').clientWidth;
+      if (trackWidth === 0) return;
+      
+      const timeToPixel = (t) => ((t - windowStart) / windowDur) * 100; // returns %
+      
+      // Playhead
+      const ph = document.getElementById('timeline-playhead');
+      ph.style.left = `${timeToPixel(currentTime)}%`;
+      
+      // Markers
+      const mIn = document.getElementById('marker-in');
+      const mOut = document.getElementById('marker-out');
+      const sel = document.getElementById('timeline-selection');
+      
+      if (markerInTime !== null) {
+        mIn.style.display = 'block';
+        mIn.style.left = `${timeToPixel(markerInTime)}%`;
+      } else mIn.style.display = 'none';
+      
+      if (markerOutTime !== null) {
+        mOut.style.display = 'block';
+        mOut.style.left = `${timeToPixel(markerOutTime)}%`;
+      } else mOut.style.display = 'none';
+      
+      if (markerInTime !== null && markerOutTime !== null) {
+        sel.style.display = 'block';
+        const startPct = Math.max(0, timeToPixel(markerInTime));
+        const endPct = Math.min(100, timeToPixel(markerOutTime));
+        sel.style.left = `${startPct}%`;
+        sel.style.width = `${endPct - startPct}%`;
+      } else {
+        sel.style.display = 'none';
+      }
+      
+      // Re-generate labels (only occasionally or if window shifted significantly to save DOM updates)
+      // For simplicity, generate every second
+      const labelsContainer = document.getElementById('timeline-labels');
+      labelsContainer.innerHTML = '';
+      
+      // Place ticks every 2 minutes (120s)
+      const tickInterval = 120;
+      let tickTime = Math.ceil(windowStart / tickInterval) * tickInterval;
+      while (tickTime <= windowEnd) {
+        const pct = timeToPixel(tickTime);
+        const span = document.createElement('span');
+        span.className = 'time-tick';
+        span.style.left = `${pct}%`;
+        span.textContent = formatClockTime(streamStartEpoch + (tickTime * 1000)).substring(0, 5); // HH:MM
+        labelsContainer.appendChild(span);
+        tickTime += tickInterval;
+      }
+    }
+    
+    // Timeline Interaction
+    const track = document.getElementById('timeline-track');
+    
+    function pixelToTime(clientX) {
+      if (!ytPlayer) return 0;
+      const rect = track.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const currentTime = ytPlayer.getCurrentTime();
+      const duration = ytPlayer.getDuration();
+      const windowStart = Math.max(0, currentTime - WINDOW_HALF);
+      const windowEnd = Math.min(duration, currentTime + WINDOW_HALF);
+      return windowStart + (pct * (windowEnd - windowStart));
+    }
+    
+    track.addEventListener('click', (e) => {
+      // Don't seek if we clicked exactly on a marker
+      if (e.target.classList.contains('timeline-marker')) return;
+      if (!ytPlayer) return;
+      ytPlayer.seekTo(pixelToTime(e.clientX), true);
+    });
+    
+    // Marker Dragging Logic
+    let draggingMarker = null;
+    
+    function initDrag(el, type) {
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        draggingMarker = type;
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    }
+    initDrag(document.getElementById('marker-in'), 'IN');
+    initDrag(document.getElementById('marker-out'), 'OUT');
+    
+    function onMouseMove(e) {
+      if (!draggingMarker || !ytPlayer) return;
+      const t = pixelToTime(e.clientX);
+      const dur = ytPlayer.getDuration();
+      
+      if (draggingMarker === 'IN') {
+        markerInTime = Math.max(0, Math.min(t, dur));
+        if (markerOutTime !== null && markerInTime > markerOutTime - 2) {
+          markerInTime = markerOutTime - 2;
+        }
+        ytPlayer.seekTo(markerInTime, true);
+      } else {
+        markerOutTime = Math.max(0, Math.min(t, dur));
+        if (markerInTime !== null && markerOutTime < markerInTime + 2) {
+          markerOutTime = markerInTime + 2;
+        }
+        ytPlayer.seekTo(markerOutTime, true);
+      }
+      updateControls();
+      updateTimeline(); // Force render
+    }
+    
+    function onMouseUp() {
+      draggingMarker = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+    
+    // Controls
+    document.getElementById('btn-set-in').addEventListener('click', () => {
+      if (!ytPlayer) return;
+      markerInTime = ytPlayer.getCurrentTime();
+      if (markerOutTime !== null && markerInTime > markerOutTime - 2) markerOutTime = markerInTime + 5;
+      updateControls(); updateTimeline();
+    });
+    
+    document.getElementById('btn-set-out').addEventListener('click', () => {
+      if (!ytPlayer) return;
+      markerOutTime = ytPlayer.getCurrentTime();
+      if (markerInTime !== null && markerOutTime < markerInTime + 2) markerInTime = Math.max(0, markerOutTime - 5);
+      updateControls(); updateTimeline();
+    });
+    
+    function updateControls() {
+      const dIn = document.getElementById('disp-in');
+      const dOut = document.getElementById('disp-out');
+      const dDur = document.getElementById('disp-dur');
+      const btnPreview = document.getElementById('btn-preview');
+      const btnSave = document.getElementById('btn-save-clip');
+      
+      if (markerInTime !== null) {
+        dIn.textContent = formatClockTime(streamStartEpoch + markerInTime * 1000);
+      } else dIn.textContent = '--:--:--';
+      
+      if (markerOutTime !== null) {
+        dOut.textContent = formatClockTime(streamStartEpoch + markerOutTime * 1000);
+      } else dOut.textContent = '--:--:--';
+      
+      if (markerInTime !== null && markerOutTime !== null) {
+        const dur = markerOutTime - markerInTime;
+        dDur.textContent = formatDuration(dur);
+        btnPreview.disabled = false; btnSave.disabled = false;
+      } else {
+        dDur.textContent = '0.0s';
+        btnPreview.disabled = true; btnSave.disabled = true;
+      }
+    }
+    
+    // Saving Clip
+    document.getElementById('btn-save-clip').addEventListener('click', async () => {
+      if (markerInTime === null || markerOutTime === null || !ytPlayer) return;
+      
+      const url = document.getElementById('live-url').value;
+      const duration = ytPlayer.getDuration();
+      const secondsAgo = duration - markerInTime;
+      const clipDur = markerOutTime - markerInTime;
+      const title = document.getElementById('clip-title').value || `clip ${clipCounter}`;
+      
+      // non-blocking
+      fetch('/live-cut', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, seconds_ago: secondsAgo, duration: clipDur, title })
+      });
+      
+      clipCounter++;
+      document.getElementById('clip-title').value = `clip ${String(clipCounter).padStart(2, '0')}`;
+      
+      // Clear markers
+      markerInTime = null; markerOutTime = null;
+      updateControls(); updateTimeline();
+      
+      // Start polling gallery
+      fetchClips();
+      if (!clipsPollTimer) clipsPollTimer = setInterval(fetchClips, 3000);
+    });
+    
+    // Gallery & Sidebar
+    const clipsList = document.getElementById('clips-list');
+    document.getElementById('btn-refresh-clips').addEventListener('click', fetchClips);
+    
+    async function fetchClips() {
+      try {
+        const res = await fetch('/clips');
+        const data = await res.json();
+        document.getElementById('clip-count').textContent = data.length;
+        
+        clipsList.innerHTML = '';
+        data.forEach(clip => {
+          const sizeStr = clip.size_bytes ? (clip.size_bytes / 1024 / 1024).toFixed(1) + ' MB' : '';
+          const card = document.createElement('div');
+          card.className = 'clip-card';
           
-          // Serve the extracted clip in the Review screen
-          reviewVideo.src = data.output_url;
-          showView('view-review');
-        } else if (data.state === 'error') {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          showError(data.detail);
-        }
-      } catch (err) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        showError(err.message);
-      }
-    }, 2000);
-  }
-
-  // ── Review Screen Interactions ───────────────────────────────────────────
-  btnReviewBack.addEventListener('click', () => {
-    reviewVideo.pause();
-    reviewVideo.src = '';
-    showView('view-upload');
-  });
-
-  btnReviewConfirm.addEventListener('click', async () => {
-    reviewVideo.pause();
-    const trimStart = parseFloat(trimStartInput.value);
-    const trimEnd = parseFloat(trimEndInput.value);
-
-    showView('view-loading');
-    statusTxt.textContent = 'Trimming video & analyzing structure…';
-
-    try {
-      const res = await fetch('/process-vertical', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          video_id: currentLiveCutId,
-          trim_start: trimStart,
-          trim_end: trimEnd
-        })
-      });
-
-      if (!res.ok) throw new Error(`Vertical processing request failed (${res.status})`);
-
-      const { job_id } = await res.json();
-      startPolling(job_id, '/status');
-    } catch (err) {
-      showError(err.message);
+          let actionsHTML = '';
+          if (clip.has_vertical) {
+            actionsHTML = `
+              <button class="btn btn-sm" onclick="downloadClip('${clip.vertical_url}')">⬇ Download</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteClip('${clip.id}')">🗑</button>
+            `;
+          } else {
+            actionsHTML = `
+              <button class="btn btn-outline btn-sm" onclick="playClip('${clip.id}')">▶ Play</button>
+              <button class="btn btn-outline btn-sm" onclick="transformClip('${clip.id}')">⟳ H2V</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteClip('${clip.id}')">🗑</button>
+            `;
+          }
+          
+          card.innerHTML = `
+            <div class="clip-header">
+              <div class="clip-title">${clip.title}</div>
+              <div class="clip-meta">
+                <span>${new Date(clip.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+                <span>${clip.duration}s • ${sizeStr}</span>
+              </div>
+            </div>
+            <div class="clip-actions-row" id="actions-${clip.id}">${actionsHTML}</div>
+          `;
+          clipsList.appendChild(card);
+        });
+      } catch (e) { console.error('Failed to fetch clips', e); }
     }
-  });
-
-  // ── Polling Standard Job status ──────────────────────────────────────────
-  function startPolling(jobId, endpointPrefix) {
-    if (pollTimer) clearInterval(pollTimer);
-
-    pollTimer = setInterval(async () => {
+    
+    window.playClip = (id) => {
+      const modal = document.getElementById('play-modal');
+      const vid = document.getElementById('modal-video');
+      vid.src = `/clips/${id}/serve`;
+      modal.classList.add('active');
+    };
+    
+    window.closePlayModal = () => {
+      const modal = document.getElementById('play-modal');
+      const vid = document.getElementById('modal-video');
+      vid.pause(); vid.src = '';
+      modal.classList.remove('active');
+    };
+    
+    window.downloadClip = (url) => { window.location.href = url; };
+    
+    window.deleteClip = async (id) => {
+      if (!confirm('Delete this clip?')) return;
+      await fetch(`/clips/${id}`, { method: 'DELETE' });
+      fetchClips();
+    };
+    
+    window.transformClip = async (id) => {
+      const acts = document.getElementById(`actions-${id}`);
+      acts.innerHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Converting...</div>`;
+      
       try {
-        const res = await fetch(`${endpointPrefix}/${jobId}`);
-        if (!res.ok) throw new Error(`Status check failed (${res.status})`);
-
-        const data = await res.json();
-        statusTxt.textContent = data.detail || 'Processing…';
-
-        if (data.state === 'done') {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          showDone(data.output_url);
-        } else if (data.state === 'error') {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          showError(data.detail);
-        }
-      } catch (err) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        showError(err.message);
+        const res = await fetch(`/clips/${id}/transform`, { method: 'POST' });
+        const { job_id } = await res.json();
+        
+        const timer = setInterval(async () => {
+          const st = await fetch(`/status/${job_id}`).then(r => r.json());
+          if (st.state === 'done') {
+            clearInterval(timer); fetchClips();
+          } else if (st.state === 'error') {
+            clearInterval(timer); acts.innerHTML = `<div class="clip-progress" style="color:var(--danger)">Failed</div>`;
+          } else {
+            acts.innerHTML = `<div class="clip-progress"><div class="mini-spinner"></div> ${st.detail}</div>`;
+          }
+        }, 2000);
+      } catch (e) {
+        acts.innerHTML = `<div class="clip-progress" style="color:var(--danger)">Error</div>`;
       }
-    }, 2500);
-  }
-
-  // ── Done ─────────────────────────────────────────────────────────────────
-  function showDone(url) {
-    videoEl.src = url;
-    btnDL.href = url;
-    showView('view-done');
-  }
-
-  // ── Error ────────────────────────────────────────────────────────────────
-  function showError(msg) {
-    errorTxt.textContent = msg || 'An unexpected error occurred.';
-    showView('view-error');
-  }
-
-  // ── Reset ────────────────────────────────────────────────────────────────
-  function reset() {
-    selectedFile = null;
-    fileInput.value = '';
-    fileName.textContent = '';
-    btnUpload.disabled = true;
-    videoEl.src = '';
-    reviewVideo.src = '';
-    currentLiveCutId = null;
-    showView('view-upload');
-  }
-
-  btnNew.addEventListener('click', reset);
-  btnRetry.addEventListener('click', reset);
-})();
-</script>
-
+    };
+    
+    // Preview Overlay Logic
+    const overlay = document.getElementById('preview-overlay');
+    let currentPreviewJobId = null;
+    let previewDur = 0;
+    
+    document.getElementById('btn-preview').addEventListener('click', async () => {
+      if (markerInTime === null || markerOutTime === null || !ytPlayer) return;
+      
+      const url = document.getElementById('live-url').value;
+      const duration = ytPlayer.getDuration();
+      const secondsAgo = duration - markerInTime;
+      const clipDur = markerOutTime - markerInTime;
+      const title = document.getElementById('clip-title').value || "Preview Clip";
+      
+      document.getElementById('preview-title-disp').textContent = title + " (Extracting...)";
+      overlay.classList.add('active');
+      
+      // non-blocking
+      const res = await fetch('/live-cut', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, seconds_ago: secondsAgo, duration: clipDur, title })
+      });
+      const { job_id } = await res.json();
+      currentPreviewJobId = job_id;
+      
+      const pTimer = setInterval(async () => {
+        const st = await fetch(`/live-cut/status/${job_id}`).then(r => r.json());
+        if (st.state === 'done') {
+          clearInterval(pTimer);
+          document.getElementById('preview-title-disp').textContent = title;
+          const vid = document.getElementById('preview-video');
+          vid.src = st.output_url;
+          currentPreviewJobId = st.clip_id; // Update to the permanent clip ID
+        } else if (st.state === 'error') {
+          clearInterval(pTimer);
+          document.getElementById('preview-title-disp').textContent = title + " [Error]";
+        }
+      }, 2000);
+    });
+    
+    document.getElementById('btn-close-preview').addEventListener('click', () => {
+      overlay.classList.remove('active');
+      const vid = document.getElementById('preview-video');
+      vid.pause(); vid.src = '';
+    });
+    
+    document.getElementById('btn-cancel-trim').addEventListener('click', () => {
+      document.getElementById('btn-close-preview').click();
+    });
+    
+    // Trim Slider Logic
+    const pVid = document.getElementById('preview-video');
+    const tStart = document.getElementById('trim-start');
+    const tEnd = document.getElementById('trim-end');
+    const sTrack = document.getElementById('slider-track');
+    
+    pVid.addEventListener('loadedmetadata', () => {
+      previewDur = pVid.duration;
+      tStart.max = previewDur; tEnd.max = previewDur;
+      tStart.value = 0; tEnd.value = previewDur;
+      document.getElementById('trim-start-label').textContent = '0.0';
+      document.getElementById('trim-end-label').textContent = previewDur.toFixed(1);
+      document.getElementById('trim-duration-label').textContent = previewDur.toFixed(1);
+      updateTrimTrack();
+    });
+    
+    function updateTrimTrack() {
+      const vStart = parseFloat(tStart.value);
+      const vEnd = parseFloat(tEnd.value);
+      const maxVal = parseFloat(tStart.max) || 100;
+      const p1 = (vStart / maxVal) * 100;
+      const p2 = (vEnd / maxVal) * 100;
+      sTrack.style.background = `linear-gradient(to right, rgba(255,255,255,0.1) ${p1}%, var(--accent) ${p1}%, var(--accent) ${p2}%, rgba(255,255,255,0.1) ${p2}%)`;
+    }
+    
+    tStart.addEventListener('input', () => {
+      let vS = parseFloat(tStart.value), vE = parseFloat(tEnd.value);
+      if (vS >= vE - 0.5) { vS = vE - 0.5; tStart.value = vS; }
+      document.getElementById('trim-start-label').textContent = vS.toFixed(1);
+      document.getElementById('trim-duration-label').textContent = (vE - vS).toFixed(1);
+      updateTrimTrack(); pVid.currentTime = vS;
+    });
+    
+    tEnd.addEventListener('input', () => {
+      let vS = parseFloat(tStart.value), vE = parseFloat(tEnd.value);
+      if (vE <= vS + 0.5) { vE = vS + 0.5; tEnd.value = vE; }
+      document.getElementById('trim-end-label').textContent = vE.toFixed(1);
+      document.getElementById('trim-duration-label').textContent = (vE - vS).toFixed(1);
+      updateTrimTrack(); pVid.currentTime = vE;
+    });
+    
+    document.getElementById('btn-save-trim').addEventListener('click', async () => {
+      if (!currentPreviewJobId) return;
+      pVid.pause();
+      document.getElementById('btn-close-preview').click(); // hide overlay
+      
+      const vS = parseFloat(tStart.value), vE = parseFloat(tEnd.value);
+      
+      // We can use the clips transform endpoint, but we need trim capability...
+      // wait, app.py has POST /process-vertical which takes video_id, trim_start, trim_end
+      // AND it works for jobs from live_cut_jobs
+      // Since _run_live_cut populates live_cut_jobs[job_id], we can use that job_id
+      
+      showOverlay('view-loading');
+      document.getElementById('status-txt').textContent = 'Queuing trimmed vertical conversion...';
+      
+      try {
+        const res = await fetch('/process-vertical', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_id: currentPreviewJobId, trim_start: vS, trim_end: vE })
+        });
+        if (!res.ok) throw new Error("Trim request failed");
+        const { job_id } = await res.json();
+        startPolling(job_id, '/status');
+      } catch (err) {
+        document.getElementById('error-txt').textContent = err.message;
+        showOverlay('view-error');
+      }
+    });
+    
+  </script>
 </body>
 </html>
