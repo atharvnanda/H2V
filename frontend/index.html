@@ -190,7 +190,8 @@
     #timeline-buffered { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(255,255,255,0.08); width: 100%; pointer-events: none; }
     #timeline-selection { position: absolute; top: 0; bottom: 0; background: var(--selection); pointer-events: none; border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); display: none; }
     
-    #timeline-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; transform: translateX(-50%); box-shadow: 0 0 4px rgba(255,255,255,0.8); z-index: 5; }
+    #timeline-playhead { position: absolute; top: 0; bottom: 0; width: 4px; background: #fff; pointer-events: auto; cursor: ew-resize; transform: translateX(-50%); box-shadow: 0 0 4px rgba(255,255,255,0.8); z-index: 20; }
+    #timeline-playhead::before { content: ''; position: absolute; top: 0; bottom: 0; left: -8px; right: -8px; }
     
     .timeline-marker {
       position: absolute; top: 0; bottom: 0; width: 12px; transform: translateX(-50%);
@@ -331,8 +332,8 @@
             <button id="btn-set-out" class="btn btn-outline btn-sm">Set Out ⏭</button>
           </div>
           <div class="time-displays">
-            <div>IN: <span id="disp-in">--:--:--</span></div>
-            <div>OUT: <span id="disp-out">--:--:--</span></div>
+            <div id="controls-in-group" style="display:flex; align-items:center;">IN: <span id="disp-in" style="margin-left:5px;">--:--:--</span></div>
+            <div id="controls-out-group" style="display:flex; align-items:center;">OUT: <span id="disp-out" style="margin-left:5px;">--:--:--</span></div>
             <div>DUR: <span id="disp-dur">0.0s</span></div>
           </div>
         </div>
@@ -576,12 +577,25 @@
     }
 
     // Timeline Rendering
-    function formatTimestamp(seconds) {
-      const s = Math.round(seconds);
-      const h = Math.floor(s / 3600);
-      const m = Math.floor((s % 3600) / 60);
-      const sec = s % 60;
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    let timelineCenterTime = null; // Decoupled center of the 4-minute window
+    let liveEdgeTime = 0; // True live edge of the player
+    let lastEdgeUpdateTime = 0; // Wall-clock time for tracking drift
+    let draggedPlayheadTime = null; // Temporary state for smooth dragging
+
+    // Now formats as negative offset from true live edge
+    function formatRelativeTime(seconds) {
+      if (liveEdgeTime === 0) return '00:00:00';
+      const offset = Math.round(seconds - liveEdgeTime);
+      if (offset >= -2) return 'LIVE'; // At live edge or very close
+      
+      const absOffset = Math.abs(offset);
+      const h = Math.floor(absOffset / 3600);
+      const m = Math.floor((absOffset % 3600) / 60);
+      const s = absOffset % 60;
+      
+      let str = `-${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      if (h > 0) str = `-${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      return str;
     }
     
     function formatDuration(sec) {
@@ -597,11 +611,26 @@
       const duration = ytPlayer.getDuration() || 0;
       if (duration === 0) return;
       
-      streamStartEpoch = Date.now() - (duration * 1000);
+      const now = Date.now();
+      if (currentTime > liveEdgeTime) {
+          liveEdgeTime = currentTime;
+          lastEdgeUpdateTime = now;
+      } else if (liveEdgeTime > 0 && lastEdgeUpdateTime > 0) {
+          // If we seeked backwards, keep ticking the live edge forward in real-time
+          const elapsedSec = (now - lastEdgeUpdateTime) / 1000;
+          liveEdgeTime += elapsedSec;
+          lastEdgeUpdateTime = now;
+      }
       
-      // Window is ±15 min centered on current time
-      const windowStart = Math.max(0, currentTime - WINDOW_HALF);
-      const windowEnd = Math.min(duration, currentTime + WINDOW_HALF);
+      // Update center only if it's null, or if video is playing and not dragging playhead
+      if (timelineCenterTime === null || (draggingMarker !== 'PLAYHEAD' && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING)) {
+         timelineCenterTime = currentTime;
+      }
+      
+      // Window is ±2 min centered (4 min total)
+      const WINDOW_HALF_SEC = 120;
+      const windowStart = Math.max(0, timelineCenterTime - WINDOW_HALF_SEC);
+      const windowEnd = Math.min(duration + WINDOW_HALF_SEC, windowStart + (WINDOW_HALF_SEC * 2));
       const windowDur = windowEnd - windowStart;
       
       // Default markers to extreme left and right on first load
@@ -618,70 +647,99 @@
       
       // Playhead
       const ph = document.getElementById('timeline-playhead');
-      ph.style.left = `${timeToPixel(currentTime)}%`;
+      const currentVisTime = (draggingMarker === 'PLAYHEAD' && draggedPlayheadTime !== null) ? draggedPlayheadTime : currentTime;
+      const phPct = timeToPixel(currentVisTime);
+      ph.style.left = `${Math.max(0, Math.min(100, phPct))}%`;
+      ph.style.display = (phPct >= 0 && phPct <= 100) ? 'block' : 'none';
       
       // Markers
       const mIn = document.getElementById('marker-in');
       const mOut = document.getElementById('marker-out');
       const sel = document.getElementById('timeline-selection');
+      const track = document.getElementById('timeline-track');
+      
+      // Update unselected dimming
+      let dimLeft = track.querySelector('.dim-left');
+      if (!dimLeft) {
+         dimLeft = document.createElement('div'); dimLeft.className = 'dim-left'; track.appendChild(dimLeft);
+         dimLeft.style.position = 'absolute'; dimLeft.style.top = '0'; dimLeft.style.bottom = '0'; dimLeft.style.left = '0';
+         dimLeft.style.backgroundColor = 'rgba(0,0,0,0.4)'; dimLeft.style.pointerEvents = 'none';
+      }
+      let dimRight = track.querySelector('.dim-right');
+      if (!dimRight) {
+         dimRight = document.createElement('div'); dimRight.className = 'dim-right'; track.appendChild(dimRight);
+         dimRight.style.position = 'absolute'; dimRight.style.top = '0'; dimRight.style.bottom = '0'; dimRight.style.right = '0';
+         dimRight.style.backgroundColor = 'rgba(0,0,0,0.4)'; dimRight.style.pointerEvents = 'none';
+      }
       
       if (markerInTime !== null) {
         mIn.style.display = 'block';
-        mIn.style.left = `${timeToPixel(markerInTime)}%`;
-      } else mIn.style.display = 'none';
+        const inPct = timeToPixel(markerInTime);
+        mIn.style.left = `${Math.max(0, Math.min(100, inPct))}%`;
+        dimLeft.style.width = `${Math.max(0, Math.min(100, inPct))}%`;
+      } else { mIn.style.display = 'none'; dimLeft.style.width = '0'; }
       
       if (markerOutTime !== null) {
         mOut.style.display = 'block';
-        mOut.style.left = `${timeToPixel(markerOutTime)}%`;
-      } else mOut.style.display = 'none';
+        const outPct = timeToPixel(markerOutTime);
+        mOut.style.left = `${Math.max(0, Math.min(100, outPct))}%`;
+        dimRight.style.width = `${100 - Math.max(0, Math.min(100, outPct))}%`;
+      } else { mOut.style.display = 'none'; dimRight.style.width = '0'; }
       
       if (markerInTime !== null && markerOutTime !== null) {
         sel.style.display = 'block';
         const startPct = Math.max(0, timeToPixel(markerInTime));
         const endPct = Math.min(100, timeToPixel(markerOutTime));
         sel.style.left = `${startPct}%`;
-        sel.style.width = `${endPct - startPct}%`;
+        sel.style.width = `${Math.max(0, endPct - startPct)}%`;
       } else {
         sel.style.display = 'none';
       }
       
-      // Re-generate labels (only occasionally or if window shifted significantly to save DOM updates)
-      // For simplicity, generate every second
+      // Re-generate labels
       const labelsContainer = document.getElementById('timeline-labels');
       labelsContainer.innerHTML = '';
       
-      // Place ticks every 2 minutes (120s)
-      const tickInterval = 120;
+      // Place ticks every 15 seconds
+      const tickInterval = 15;
       let tickTime = Math.ceil(windowStart / tickInterval) * tickInterval;
       while (tickTime <= windowEnd) {
         const pct = timeToPixel(tickTime);
-        const span = document.createElement('span');
-        span.className = 'time-tick';
-        span.style.left = `${pct}%`;
-        span.textContent = formatTimestamp(tickTime); // HH:MM:SS
-        labelsContainer.appendChild(span);
+        if (pct >= 0 && pct <= 100) {
+          const span = document.createElement('span');
+          span.className = 'time-tick';
+          span.style.left = `${pct}%`;
+          span.textContent = formatRelativeTime(tickTime);
+          labelsContainer.appendChild(span);
+        }
         tickTime += tickInterval;
       }
     }
     
     // Timeline Interaction
     const track = document.getElementById('timeline-track');
+    let draggingMarker = null; // 'IN', 'OUT', or 'PLAYHEAD'
     
     function pixelToTime(clientX) {
       if (!ytPlayer) return 0;
       const rect = track.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const currentTime = ytPlayer.getCurrentTime();
-      const duration = ytPlayer.getDuration();
-      const windowStart = Math.max(0, currentTime - WINDOW_HALF);
-      const windowEnd = Math.min(duration, currentTime + WINDOW_HALF);
+      const WINDOW_HALF_SEC = 120;
+      const windowStart = Math.max(0, timelineCenterTime - WINDOW_HALF_SEC);
+      const windowEnd = windowStart + (WINDOW_HALF_SEC * 2);
       return windowStart + (pct * (windowEnd - windowStart));
     }
     
-    // Timeline navigation click disabled per user request
-    
-    // Marker Dragging Logic
-    let draggingMarker = null;
+    track.addEventListener('mousedown', (e) => {
+      // If we clicked directly on track (not on a marker), act as clicking to seek
+      if (e.target === track || e.target.id === 'timeline-selection' || e.target.className.startsWith('dim-')) {
+         if (!ytPlayer) return;
+         const t = Math.max(0, Math.min(ytPlayer.getDuration(), pixelToTime(e.clientX)));
+         ytPlayer.seekTo(t, true);
+         timelineCenterTime = t;
+         updateTimeline();
+      }
+    });
     
     function initDrag(el, type) {
       el.addEventListener('mousedown', (e) => {
@@ -693,6 +751,7 @@
     }
     initDrag(document.getElementById('marker-in'), 'IN');
     initDrag(document.getElementById('marker-out'), 'OUT');
+    initDrag(document.getElementById('timeline-playhead'), 'PLAYHEAD');
     
     function onMouseMove(e) {
       if (!draggingMarker || !ytPlayer) return;
@@ -701,41 +760,87 @@
       
       if (draggingMarker === 'IN') {
         markerInTime = Math.max(0, Math.min(t, dur));
-        if (markerOutTime !== null && markerInTime > markerOutTime - 2) {
-          markerInTime = markerOutTime - 2;
-        }
-        ytPlayer.seekTo(markerInTime, true);
-      } else {
+        if (markerOutTime !== null && markerInTime > markerOutTime - 1) markerInTime = Math.max(0, markerOutTime - 1);
+      } else if (draggingMarker === 'OUT') {
         markerOutTime = Math.max(0, Math.min(t, dur));
-        if (markerInTime !== null && markerOutTime < markerInTime + 2) {
-          markerOutTime = markerInTime + 2;
-        }
-        ytPlayer.seekTo(markerOutTime, true);
+        if (markerInTime !== null && markerOutTime < markerInTime + 1) markerOutTime = Math.min(dur, markerInTime + 1);
+      } else if (draggingMarker === 'PLAYHEAD') {
+        // Just update local variable for visual rendering without seeking
+        draggedPlayheadTime = Math.max(0, Math.min(t, dur));
       }
       updateControls();
       updateTimeline(); // Force render
     }
     
-    function onMouseUp() {
+    function onMouseUp(e) {
+      if (draggingMarker === 'PLAYHEAD') {
+          if (draggedPlayheadTime !== null) {
+              ytPlayer.seekTo(draggedPlayheadTime, true);
+              timelineCenterTime = draggedPlayheadTime;
+          }
+          draggedPlayheadTime = null;
+      }
       draggingMarker = null;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     }
     
-    // Controls
+    // Controls & Nudges
     document.getElementById('btn-set-in').addEventListener('click', () => {
       if (!ytPlayer) return;
       markerInTime = ytPlayer.getCurrentTime();
-      if (markerOutTime !== null && markerInTime > markerOutTime - 2) markerOutTime = markerInTime + 5;
+      if (markerOutTime !== null && markerInTime > markerOutTime - 1) markerOutTime = markerInTime + 5;
       updateControls(); updateTimeline();
     });
     
     document.getElementById('btn-set-out').addEventListener('click', () => {
       if (!ytPlayer) return;
       markerOutTime = ytPlayer.getCurrentTime();
-      if (markerInTime !== null && markerOutTime < markerInTime + 2) markerInTime = Math.max(0, markerOutTime - 5);
+      if (markerInTime !== null && markerOutTime < markerInTime + 1) markerInTime = Math.max(0, markerOutTime - 5);
       updateControls(); updateTimeline();
     });
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Don't trigger if user is typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      if (e.key.toLowerCase() === 'i') {
+         document.getElementById('btn-set-in').click();
+      } else if (e.key.toLowerCase() === 'o') {
+         document.getElementById('btn-set-out').click();
+      } else if (e.code === 'Space') {
+         e.preventDefault();
+         if (ytPlayer) {
+           const state = ytPlayer.getPlayerState();
+           if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+           else ytPlayer.playVideo();
+         }
+      }
+    });
+
+    function createNudgeButtons(parentId, type) {
+       const cont = document.getElementById(parentId);
+       const minus = document.createElement('button'); minus.className = 'btn btn-outline btn-sm'; minus.textContent = '-1s';
+       const plus = document.createElement('button'); plus.className = 'btn btn-outline btn-sm'; plus.textContent = '+1s';
+       minus.style.padding = '0.1rem 0.3rem'; minus.style.fontSize = '0.75rem'; minus.style.marginLeft = '0.5rem';
+       plus.style.padding = '0.1rem 0.3rem'; plus.style.fontSize = '0.75rem'; plus.style.marginLeft = '0.2rem';
+       
+       minus.onclick = () => { 
+           if (type === 'IN' && markerInTime !== null) { markerInTime = Math.max(0, markerInTime - 1); }
+           if (type === 'OUT' && markerOutTime !== null) { markerOutTime = Math.max(0, markerOutTime - 1); }
+           updateControls(); updateTimeline();
+       };
+       plus.onclick = () => {
+           const dur = ytPlayer ? ytPlayer.getDuration() : 0;
+           if (type === 'IN' && markerInTime !== null) { markerInTime = Math.min(dur, markerInTime + 1); }
+           if (type === 'OUT' && markerOutTime !== null) { markerOutTime = Math.min(dur, markerOutTime + 1); }
+           updateControls(); updateTimeline();
+       };
+       cont.appendChild(minus); cont.appendChild(plus);
+    }
+    createNudgeButtons('controls-in-group', 'IN');
+    createNudgeButtons('controls-out-group', 'OUT');
     
     function updateControls() {
       const dIn = document.getElementById('disp-in');
@@ -743,13 +848,14 @@
       const dDur = document.getElementById('disp-dur');
       const btnPreview = document.getElementById('btn-preview');
       const btnSave = document.getElementById('btn-save-clip');
+      const duration = ytPlayer ? ytPlayer.getDuration() : 0;
       
       if (markerInTime !== null) {
-        dIn.textContent = formatTimestamp(markerInTime);
+        dIn.textContent = formatRelativeTime(markerInTime);
       } else dIn.textContent = '--:--:--';
       
       if (markerOutTime !== null) {
-        dOut.textContent = formatTimestamp(markerOutTime);
+        dOut.textContent = formatRelativeTime(markerOutTime);
       } else dOut.textContent = '--:--:--';
       
       if (markerInTime !== null && markerOutTime !== null) {
@@ -771,10 +877,13 @@
       btnSaveClip.disabled = true;
       const originalText = btnSaveClip.textContent;
       btnSaveClip.textContent = 'Saving...';
-      
       const url = document.getElementById('live-url').value;
-      const duration = ytPlayer.getDuration();
-      const secondsAgo = duration - markerInTime;
+      
+      // If duration is stale (frozen), ytPlayer.getDuration() causes massive drift.
+      // The truest measure of "seconds ago from the actual live edge" is simply
+      // subtracting markerInTime from our tracked liveEdgeTime.
+      // This completely eliminates the "got another clip altogether" bug caused by YouTube's API drift.
+      const secondsAgo = liveEdgeTime - markerInTime;
       const clipDur = markerOutTime - markerInTime;
       const title = document.getElementById('clip-title').value || `clip ${clipCounter}`;
       
