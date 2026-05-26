@@ -576,9 +576,12 @@
     }
 
     // Timeline Rendering
-    function formatClockTime(epochMs) {
-      const d = new Date(epochMs);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    function formatTimestamp(seconds) {
+      const s = Math.round(seconds);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
     }
     
     function formatDuration(sec) {
@@ -600,6 +603,13 @@
       const windowStart = Math.max(0, currentTime - WINDOW_HALF);
       const windowEnd = Math.min(duration, currentTime + WINDOW_HALF);
       const windowDur = windowEnd - windowStart;
+      
+      // Default markers to extreme left and right on first load
+      if (markerInTime === null && markerOutTime === null) {
+        markerInTime = windowStart;
+        markerOutTime = windowEnd;
+        updateControls();
+      }
       
       const trackWidth = document.getElementById('timeline-track').clientWidth;
       if (trackWidth === 0) return;
@@ -648,7 +658,7 @@
         const span = document.createElement('span');
         span.className = 'time-tick';
         span.style.left = `${pct}%`;
-        span.textContent = formatClockTime(streamStartEpoch + (tickTime * 1000)).substring(0, 5); // HH:MM
+        span.textContent = formatTimestamp(tickTime); // HH:MM:SS
         labelsContainer.appendChild(span);
         tickTime += tickInterval;
       }
@@ -668,12 +678,7 @@
       return windowStart + (pct * (windowEnd - windowStart));
     }
     
-    track.addEventListener('click', (e) => {
-      // Don't seek if we clicked exactly on a marker
-      if (e.target.classList.contains('timeline-marker')) return;
-      if (!ytPlayer) return;
-      ytPlayer.seekTo(pixelToTime(e.clientX), true);
-    });
+    // Timeline navigation click disabled per user request
     
     // Marker Dragging Logic
     let draggingMarker = null;
@@ -740,11 +745,11 @@
       const btnSave = document.getElementById('btn-save-clip');
       
       if (markerInTime !== null) {
-        dIn.textContent = formatClockTime(streamStartEpoch + markerInTime * 1000);
+        dIn.textContent = formatTimestamp(markerInTime);
       } else dIn.textContent = '--:--:--';
       
       if (markerOutTime !== null) {
-        dOut.textContent = formatClockTime(streamStartEpoch + markerOutTime * 1000);
+        dOut.textContent = formatTimestamp(markerOutTime);
       } else dOut.textContent = '--:--:--';
       
       if (markerInTime !== null && markerOutTime !== null) {
@@ -758,8 +763,14 @@
     }
     
     // Saving Clip
-    document.getElementById('btn-save-clip').addEventListener('click', async () => {
+    const btnSaveClip = document.getElementById('btn-save-clip');
+    btnSaveClip.addEventListener('click', async () => {
       if (markerInTime === null || markerOutTime === null || !ytPlayer) return;
+      if (btnSaveClip.disabled) return;
+      
+      btnSaveClip.disabled = true;
+      const originalText = btnSaveClip.textContent;
+      btnSaveClip.textContent = 'Saving...';
       
       const url = document.getElementById('live-url').value;
       const duration = ytPlayer.getDuration();
@@ -767,22 +778,25 @@
       const clipDur = markerOutTime - markerInTime;
       const title = document.getElementById('clip-title').value || `clip ${clipCounter}`;
       
-      // non-blocking
-      fetch('/live-cut', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, seconds_ago: secondsAgo, duration: clipDur, title })
-      });
-      
-      clipCounter++;
-      document.getElementById('clip-title').value = `clip ${String(clipCounter).padStart(2, '0')}`;
-      
-      // Clear markers
-      markerInTime = null; markerOutTime = null;
-      updateControls(); updateTimeline();
-      
-      // Start polling gallery
-      fetchClips();
-      if (!clipsPollTimer) clipsPollTimer = setInterval(fetchClips, 3000);
+      try {
+        await fetch('/live-cut', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, seconds_ago: secondsAgo, duration: clipDur, title })
+        });
+        
+        clipCounter++;
+        document.getElementById('clip-title').value = `clip ${String(clipCounter).padStart(2, '0')}`;
+        
+        // Clear markers to window bounds next update
+        markerInTime = null; markerOutTime = null;
+        updateControls(); updateTimeline();
+        
+        fetchClips();
+        if (!clipsPollTimer) clipsPollTimer = setInterval(fetchClips, 3000);
+      } finally {
+        btnSaveClip.disabled = false;
+        btnSaveClip.textContent = originalText;
+      }
     });
     
     // Gallery & Sidebar
@@ -967,16 +981,17 @@
     });
     
     document.getElementById('btn-save-trim').addEventListener('click', async () => {
-      if (!currentPreviewJobId) return;
+      const btnSaveTrim = document.getElementById('btn-save-trim');
+      if (!currentPreviewJobId || btnSaveTrim.disabled) return;
+      
+      btnSaveTrim.disabled = true;
+      const originalText = btnSaveTrim.textContent;
+      btnSaveTrim.textContent = 'Saving...';
+      
       pVid.pause();
       document.getElementById('btn-close-preview').click(); // hide overlay
       
       const vS = parseFloat(tStart.value), vE = parseFloat(tEnd.value);
-      
-      // We can use the clips transform endpoint, but we need trim capability...
-      // wait, app.py has POST /process-vertical which takes video_id, trim_start, trim_end
-      // AND it works for jobs from live_cut_jobs
-      // Since _run_live_cut populates live_cut_jobs[job_id], we can use that job_id
       
       showOverlay('view-loading');
       document.getElementById('status-txt').textContent = 'Queuing trimmed vertical conversion...';
@@ -992,6 +1007,9 @@
       } catch (err) {
         document.getElementById('error-txt').textContent = err.message;
         showOverlay('view-error');
+      } finally {
+        btnSaveTrim.disabled = false;
+        btnSaveTrim.textContent = originalText;
       }
     });
     

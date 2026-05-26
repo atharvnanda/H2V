@@ -167,14 +167,16 @@ def extract_livestream_clip(youtube_url: str, seconds_ago: float, duration: floa
             encoding="utf-8"
         )
         
-        # Transcode or copy. Copied ts segments to mp4 is usually fast, but transcoding cleans up timestamps.
-        # Let's try to copy it first as it is super fast and standard.
+        # Transcode segments to fix timestamps and ensure correct duration.
+        # Live HLS chunks do not start at 0 PTS, so copying them causes duration bugs.
         cmd = [
             "ffmpeg", "-y",
             "-f", "concat",
             "-safe", "0",
             "-i", str(concat_list),
-            "-c", "copy",
+            "-c:v", "libx264",
+            "-preset", "superfast",
+            "-c:a", "aac",
             str(output_path)
         ]
         
