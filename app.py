@@ -251,20 +251,15 @@ def _run_live_cut(job_id: str, url: str, seconds_ago: float, duration: float, ou
             progress_callback=update_progress,
         )
         
-        # Save clip to clips directory with metadata
+        # Output is complete, update metadata
         clip_path = CLIPS_DIR / f"{job_id}.mp4"
         shutil.copy2(str(output_path), str(clip_path))
         
-        meta = {
-            "id": job_id,
-            "title": title,
-            "created_at": datetime.now().isoformat(),
-            "duration": duration,
-            "source_url": url,
-            "filename": f"{job_id}.mp4",
-        }
         meta_path = CLIPS_DIR / f"{job_id}.json"
-        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        if meta_path.exists():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            meta["status"] = "done"
+            meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         
         live_cut_jobs[job_id]["state"] = "done"
         live_cut_jobs[job_id]["detail"] = "Extraction complete"
@@ -272,6 +267,13 @@ def _run_live_cut(job_id: str, url: str, seconds_ago: float, duration: float, ou
         live_cut_jobs[job_id]["clip_id"] = job_id
         print(f"[h2v] [{job_id}] OK Live cut done -> {output_path.name}")
     except Exception as exc:
+        meta_path = CLIPS_DIR / f"{job_id}.json"
+        if meta_path.exists():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            meta["status"] = "error"
+            meta["error_detail"] = str(exc)
+            meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+            
         live_cut_jobs[job_id]["state"] = "error"
         live_cut_jobs[job_id]["detail"] = str(exc)
         print(f"[h2v] [{job_id}] FAIL Live cut error: {exc}")
@@ -290,6 +292,19 @@ async def start_live_cut(req: LiveCutRequest):
         "detail": "Initializing live stream extraction...",
         "output": None,
     }
+    
+    # Save a placeholder metadata file immediately so it appears in the gallery
+    meta = {
+        "id": job_id,
+        "title": req.title,
+        "created_at": datetime.now().isoformat(),
+        "duration": req.duration,
+        "source_url": req.url,
+        "filename": f"{job_id}.mp4",
+        "status": "processing"
+    }
+    meta_path = CLIPS_DIR / f"{job_id}.json"
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     
     thread = threading.Thread(
         target=_run_live_cut,
@@ -424,6 +439,14 @@ async def list_clips():
                 meta["has_vertical"] = vert_path.exists()
                 if vert_path.exists():
                     meta["vertical_url"] = f"/download/{meta['id']}"
+                    
+                # Check if currently transforming
+                job = jobs.get(meta["id"])
+                meta["is_transforming"] = (job is not None and job["state"] == "processing")
+                
+                clips.append(meta)
+            elif meta.get("status") in ["processing", "error"]:
+                # mp4 doesn't exist yet but it's extracting or failed
                 clips.append(meta)
         except Exception:
             continue

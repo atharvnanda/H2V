@@ -927,7 +927,13 @@
           card.className = 'clip-card';
           
           let actionsHTML = '';
-          if (clip.has_vertical) {
+          if (clip.status === 'processing') {
+             actionsHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Extracting...</div>`;
+          } else if (clip.status === 'error') {
+             actionsHTML = `<div style="color:var(--danger); font-size:0.8rem;">Error: ${clip.error_detail}</div> <button class="btn btn-danger btn-sm" onclick="deleteClip('${clip.id}')">🗑</button>`;
+          } else if (clip.is_transforming) {
+             actionsHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Converting H2V...</div>`;
+          } else if (clip.has_vertical) {
             actionsHTML = `
               <button class="btn btn-sm" onclick="downloadClip('${clip.vertical_url}')">⬇ Download</button>
               <button class="btn btn-danger btn-sm" onclick="deleteClip('${clip.id}')">🗑</button>
@@ -979,24 +985,13 @@
     
     window.transformClip = async (id) => {
       const acts = document.getElementById(`actions-${id}`);
-      acts.innerHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Converting...</div>`;
+      if (acts) acts.innerHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Converting H2V...</div>`;
       
       try {
         const res = await fetch(`/clips/${id}/transform`, { method: 'POST' });
-        const { job_id } = await res.json();
-        
-        const timer = setInterval(async () => {
-          const st = await fetch(`/status/${job_id}`).then(r => r.json());
-          if (st.state === 'done') {
-            clearInterval(timer); fetchClips();
-          } else if (st.state === 'error') {
-            clearInterval(timer); acts.innerHTML = `<div class="clip-progress" style="color:var(--danger)">Failed</div>`;
-          } else {
-            acts.innerHTML = `<div class="clip-progress"><div class="mini-spinner"></div> ${st.detail}</div>`;
-          }
-        }, 2000);
+        if (!clipsPollTimer) clipsPollTimer = setInterval(fetchClips, 3000);
       } catch (e) {
-        acts.innerHTML = `<div class="clip-progress" style="color:var(--danger)">Error</div>`;
+        console.error("Transform failed", e);
       }
     };
     
