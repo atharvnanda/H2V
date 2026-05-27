@@ -612,7 +612,11 @@
       if (duration === 0) return;
       
       const now = Date.now();
-      if (currentTime > liveEdgeTime) {
+      if (duration - currentTime < 5) {
+          // Resync to true live edge if user goes to within 5 seconds of duration
+          liveEdgeTime = currentTime;
+          lastEdgeUpdateTime = now;
+      } else if (currentTime > liveEdgeTime) {
           liveEdgeTime = currentTime;
           lastEdgeUpdateTime = now;
       } else if (liveEdgeTime > 0 && lastEdgeUpdateTime > 0) {
@@ -885,14 +889,31 @@
       // The truest measure of "seconds ago from the actual live edge" is simply
       // subtracting markerInTime from our tracked liveEdgeTime.
       // This completely eliminates the "got another clip altogether" bug caused by YouTube's API drift.
-      const secondsAgo = liveEdgeTime - markerInTime;
+      let finalSecondsAgo = liveEdgeTime - markerInTime;
       const clipDur = markerOutTime - markerInTime;
       const title = document.getElementById('clip-title').value || `clip ${clipCounter}`;
       
       try {
+        // Validate DVR range
+        const valRes = await fetch('/live-cut/validate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, seconds_ago: finalSecondsAgo, duration: clipDur })
+        });
+        const valData = await valRes.json();
+        
+        if (valData.valid === false) {
+           const wantEarliest = confirm("This timestamp is beyond the 4-hour DVR buffer. Want to clip from the earliest available point instead?");
+           if (!wantEarliest) {
+               btnSaveClip.disabled = false;
+               btnSaveClip.textContent = originalText;
+               return;
+           }
+           finalSecondsAgo = valData.earliest_seconds_ago;
+        }
+
         await fetch('/live-cut', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, seconds_ago: secondsAgo, duration: clipDur, title })
+          body: JSON.stringify({ url, seconds_ago: finalSecondsAgo, duration: clipDur, title })
         });
         
         clipCounter++;
@@ -928,11 +949,13 @@
           
           let actionsHTML = '';
           if (clip.status === 'processing') {
-             actionsHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Extracting...</div>`;
+             const detail = clip.status_detail || 'Extracting...';
+             actionsHTML = `<div class="clip-progress"><div class="mini-spinner"></div> ${detail}</div>`;
           } else if (clip.status === 'error') {
              actionsHTML = `<div style="color:var(--danger); font-size:0.8rem;">Error: ${clip.error_detail}</div> <button class="btn btn-danger btn-sm" onclick="deleteClip('${clip.id}')">🗑</button>`;
           } else if (clip.is_transforming) {
-             actionsHTML = `<div class="clip-progress"><div class="mini-spinner"></div> Converting H2V...</div>`;
+             const detail = clip.status_detail || 'Converting H2V...';
+             actionsHTML = `<div class="clip-progress"><div class="mini-spinner"></div> ${detail}</div>`;
           } else if (clip.has_vertical) {
             actionsHTML = `
               <button class="btn btn-sm" onclick="downloadClip('${clip.vertical_url}')">⬇ Download</button>

@@ -56,6 +56,12 @@ class ResolveStreamRequest(BaseModel):
     url: str
 
 
+class ValidateLiveCutRequest(BaseModel):
+    url: str
+    seconds_ago: float
+    duration: float
+
+
 class LiveCutRequest(BaseModel):
     url: str
     seconds_ago: float
@@ -279,6 +285,23 @@ def _run_live_cut(job_id: str, url: str, seconds_ago: float, duration: float, ou
         print(f"[h2v] [{job_id}] FAIL Live cut error: {exc}")
 
 
+@app.post("/live-cut/validate")
+async def validate_live_cut(req: ValidateLiveCutRequest):
+    """Check if the requested trim range is within the available DVR buffer."""
+    try:
+        from core.live_cutter import _get_full_playlist, get_yt_dlp_path
+        yt_dlp = get_yt_dlp_path()
+        segment_urls, sequence_numbers, segment_duration = _get_full_playlist(yt_dlp, req.url)
+        min_sq = min(sequence_numbers)
+        current_sq = max(sequence_numbers)
+        max_seconds_ago = (current_sq - min_sq) * segment_duration
+        if req.seconds_ago > max_seconds_ago:
+            return JSONResponse({"valid": False, "earliest_seconds_ago": max_seconds_ago})
+        return JSONResponse({"valid": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
 # ── Live Cut Endpoints ────────────────────────────────────────────────────────
 
 @app.post("/live-cut")
@@ -443,10 +466,15 @@ async def list_clips():
                 # Check if currently transforming
                 job = jobs.get(meta["id"])
                 meta["is_transforming"] = (job is not None and job["state"] == "processing")
+                if meta["is_transforming"]:
+                    meta["status_detail"] = job.get("detail", "Converting H2V...")
                 
                 clips.append(meta)
             elif meta.get("status") in ["processing", "error"]:
                 # mp4 doesn't exist yet but it's extracting or failed
+                live_job = live_cut_jobs.get(meta["id"])
+                if live_job:
+                    meta["status_detail"] = live_job.get("detail", "Extracting...")
                 clips.append(meta)
         except Exception:
             continue
